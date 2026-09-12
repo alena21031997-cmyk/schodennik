@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Розумний Щоденник & ШІ-Помічник</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f1012">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Щоденник">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+  <style>
+    :root {
+      --bg: #0f1012;
+      --card-bg: #18191d;
+      --inner-card: #202227;
+      --accent-gold: #c69b52;
+      --accent-gold-bg: rgba(198, 155, 82, 0.15);
+      --text: #ffffff;
+      --text-sub: #8e8e93;
+      --p-color: #4fc3f7;
+      --f-color: #ffb74d;
+      --c-color: #81c784;
+      --battery-color: #aed581;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 12px; padding-bottom: 140px; max-width: 480px; margin: 0 auto; }
+
+    /* Верхня панель */
+    .top-icons { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .icon-btn { background: var(--card-bg); border: 1px solid #2a2b30; width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); font-size: 18px; }
+    .top-right { display: flex; gap: 8px; align-items: center; }
+    .kcal-top-badge { background: var(--accent-gold-bg); color: var(--accent-gold); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 14px; border: 1px solid rgba(198, 155, 82, 0.3); }
+
+    /* Календар */
+    .day-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 12px; color: var(--text-sub); }
+    .day-item { text-align: center; padding: 6px 10px; border-radius: 12px; cursor: pointer; }
+    .day-item.active { background: #26272b; color: var(--text); font-weight: bold; border-bottom: 2px solid var(--accent-gold); }
+    .calendar-card { background: var(--card-bg); border: 1px solid #202226; border-radius: 16px; padding: 10px; margin-bottom: 12px; }
+    .calendar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .calendar-title { font-size: 13px; font-weight: 700; }
+    .calendar-nav { display: flex; gap: 6px; }
+    .calendar-nav button { width: 28px; height: 28px; border: 1px solid #30333d; border-radius: 8px; background: var(--inner-card); color: #fff; cursor: pointer; }
+    .calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .calendar-day { border: 1px solid transparent; border-radius: 10px; padding: 7px 2px; background: transparent; color: var(--text-sub); cursor: pointer; text-align: center; font-size: 11px; }
+    .calendar-day:hover { background: #26272b; }
+    .calendar-day.today { border-color: rgba(198, 155, 82, 0.55); }
+    .calendar-day.active { background: var(--accent-gold); color: #000; font-weight: 800; }
+    .calendar-day .date-number { display: block; font-size: 14px; margin-top: 3px; }
+    .selected-date { color: var(--text-sub); font-size: 11px; margin-top: 8px; text-align: center; }
+
+    /* Денний дашборд з Батарейкою Енергії */
+    .summary-card { background: var(--card-bg); border-radius: 20px; padding: 16px; margin-bottom: 12px; }
+    .kcal-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+    .kcal-num { font-size: 32px; font-weight: 800; line-height: 1; }
+    .kcal-num span { font-size: 13px; font-weight: 400; color: var(--text-sub); }
+    
+    .battery-container { background: #26272b; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; border: 1px solid #333; }
+    .progress-bar { height: 6px; background: #26272b; border-radius: 3px; margin-bottom: 12px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--battery-color); width: 41%; transition: width 0.4s ease; }
+
+    .bgu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .bgu-box { background: var(--inner-card); border-radius: 12px; padding: 10px; }
+    .bgu-title { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; font-weight: 600; }
+    .bgu-val { font-size: 15px; font-weight: 700; }
+    .bgu-val span { font-size: 12px; color: var(--text-sub); font-weight: 400; }
+
+    .micro-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-sub); background: var(--inner-card); padding: 8px 12px; border-radius: 10px; }
+    .micro-item span { color: var(--text); font-weight: 600; }
+
+    /* Трекер води */
+    .water-box { background: var(--card-bg); border-radius: 16px; padding: 14px; margin-bottom: 12px; border: 1px solid #202226; display: flex; justify-content: space-between; align-items: center; }
+    .btn-small { background: var(--inner-card); border: 1px solid #30333d; color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 11px; cursor: pointer; margin-left: 4px; }
+    .btn-gold { background: var(--accent-gold); color: #000; font-weight: 700; border: none; }/* Прийоми їжі */
+    .meal-card { background: var(--card-bg); border-radius: 18px; margin-bottom: 10px; overflow: hidden; border: 1px solid #202226; }
+    .meal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; }
+    .meal-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .meal-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .meal-badge { background: var(--accent-gold-bg); color: var(--accent-gold); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+    .meal-body { padding: 0 16px 14px 16px; display: none; }
+    .meal-body.open { display: block; }
+
+    .food-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #22242a; font-size: 13px; }
+    .food-title { font-weight: 500; margin-bottom: 2px; }
+    .food-sub { font-size: 10px; color: var(--text-sub); }
+    .food-right { display: flex; align-items: center; gap: 12px; text-align: right; }
+    .del-btn { color: var(--text-sub); cursor: pointer; font-size: 14px; margin-left: 6px; }
+
+    /* Нижній ШІ-Чат */
+    .floating-bar { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 456px; background: #18191d; border: 1px solid #2a2b30; border-radius: 22px; padding: 8px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.8); z-index: 90; }
+    .target-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-gold-bg); color: var(--accent-gold); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; margin-bottom: 6px; cursor: pointer; user-select: none; }
+    .chat-row { display: flex; align-items: center; gap: 8px; }
+    .chat-row input { flex: 1; background: transparent; border: none; color: #fff; outline: none; font-size: 13px; }
+    .send-btn { background: var(--accent-gold); border: none; color: #000; padding: 7px 14px; border-radius: 10px; font-weight: 700; font-size: 12px; cursor: pointer; }
+    .chat-actions { display: flex; gap: 10px; color: var(--text-sub); font-size: 18px; align-items: center; }
+    .cam-btn, .barcode-btn { cursor: pointer; }
+
+    /* БОКОВЕ МЕНЮ */
+    .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; z-index: 100; backdrop-filter: blur(4px); }
+    .drawer-overlay.active { display: block; }
+    .drawer-menu { position: fixed; top: 0; right: -100%; width: 88%; max-width: 400px; height: 100%; background: #141518; border-left: 1px solid #25272e; padding: 20px; overflow-y: auto; transition: right 0.3s ease; z-index: 101; }
+    .drawer-menu.active { right: 0; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #22242b; padding-bottom: 10px; }
+    
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .input-group { background: var(--inner-card); padding: 8px 10px; border-radius: 10px; border: 1px solid #282a30; }
+    .input-group label { display: block; font-size: 10px; color: var(--text-sub); margin-bottom: 2px; }
+    .input-group input, .input-group select { background: transparent; border: none; color: #fff; font-size: 13px; font-weight: 600; width: 100%; outline: none; }
+
+    .calc-card { background: var(--inner-card); border-radius: 12px; padding: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--accent-gold); }
+    .calc-val { font-size: 15px; font-weight: 800; color: #fff; }
+
+    .menu-item-btn { background: var(--inner-card); border: 1px solid #262830; border-radius: 12px; padding: 12px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }.menu-item-content { display: none; background: #1c1d22; padding: 12px; border-radius: 10px; margin-bottom: 10px; font-size: 12px; line-height: 1.4; color: #ccc; }
+    .menu-item-content.open { display: block; }
+
+    /* Пошук та каталоги */
+    .search-input { width: 100%; background: #101114; border: 1px solid #30333d; border-radius: 8px; padding: 8px; color: #fff; font-size: 12px; margin-bottom: 8px; outline: none; }
+    .catalog-list { max-height: 180px; overflow-y: auto; }
+    .catalog-item { background: #22242b; padding: 8px; border-radius: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    .recipe-card { background: #22242b; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+    .recipe-header { font-weight: 700; color: #fff; display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .eye-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 6px; }
+    .eye-box { background: #101114; padding: 6px 8px; border-radius: 8px; text-align: left; font-size: 11px; }
+
+    .ai-bubble { background: rgba(198, 155, 82, 0.1); border: 1px dashed var(--accent-gold); padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; font-size: 12px; color: #e0d0b0; display: flex; gap: 8px; align-items: flex-start; }
+  </style>
+</head>
+<body>
+
+  <!-- Верхня панель -->
+  <div class="top-icons">
+    <div class="icon-btn" onclick="toggleMenu()">☰</div>
+    <div style="font-weight:700; font-size:16px;">Розумний Щоденник</div>
+    <div class="top-right">
+      <div class="kcal-top-badge" id="topKcalBadge">740 ккал</div>
+    </div>
+  </div>
+
+  <!-- Робочий календар -->
+  <div class="calendar-card">
+    <div class="calendar-head">
+      <div class="calendar-title" id="calendarMonthTitle">Календар</div>
+      <div class="calendar-nav">
+        <button type="button" onclick="changeCalendarWeek(-7)" aria-label="Попередній тиждень">‹</button>
+        <button type="button" onclick="goToToday()" aria-label="Сьогодні">●</button>
+        <button type="button" onclick="changeCalendarWeek(7)" aria-label="Наступний тиждень">›</button>
+      </div>
+    </div>
+    <div class="calendar-week" id="calendarWeek" aria-label="Вибір дати"></div>
+    <div class="selected-date" id="selectedDateLabel"></div>
+  </div>
+
+  <!-- СТАТИСТИКА ТА БАТАРЕЙКА ЕНЕРГІЇ -->
+  <div class="summary-card">
+    <div class="kcal-row">
+      <div class="kcal-num"><span id="totalKcalDisplay">740</span> <span style="font-size:13px;">з'їдено</span></div>
+      <div style="font-size:14px; color:var(--text-sub);"><strong style="color:#fff; font-size:18px;" id="remainKcalDisplay">1130</strong> лишилось</div>
+    </div>
+    
+    <div class="battery-container">
+      <span>🔋 Батарейка енергії (Паливо)</span>
+      <span id="batteryStatusText" style="color:var(--battery-color); font-weight:700;">Ресурс оптимальний (41%)</span>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 41%;"></div></div>
+
+    <div class="bgu-grid">
+      <div class="bgu-box">
+        <div class="bgu-title">БІЛКИ</div>
+        <div class="bgu-val" style="color:var(--p-color);"><span id="pVal">28</span> <span id="pGoal">/144г</span></div>
+      </div>
+      <div class="bgu-box">
+        <div class="bgu-title">ЖИРИ</div>
+        <div class="bgu-val" style="color:var(--f-color);"><span id="fVal">36</span> <span id="fGoal">/82г</span></div>
+      </div>
+      <div class="bgu-box">
+        <div class="bgu-title">ВУГЛ</div>
+        <div class="bgu-val" style="color:var(--c-color);"><span id="cVal">68</span> <span id="cGoal">/120г</span></div>
+      </div>
+    </div>
+
+    <div class="micro-row">
+      <div class="micro-item">Клітковина: <span>12/30г</span></div>
+      <div class="micro-item">Цукор: <span>18/50г</span></div>
+      <div class="micro-item">Банк вихідних: <span id="bankDisplay">+0 ккал</span></div>
+    </div>
+  </div>
+
+  <!-- Трекер води -->
+  <div class="water-box">
+    <div>
+      <div style="font-size:12px; color:var(--text-sub);">💧 Гідратація</div>
+      <div style="font-size:16px; font-weight:800;"><span id="waterVal">1250</span> мл</div>
+    </div>
+    <div>
+      <button class="btn-small" onclick="addWater(250)">+250 мл</button>
+      <button class="btn-small" onclick="addWater(500)">+500 мл</button>
+    </div>
+  </div><!-- Прийоми їжі -->
+  <div class="meal-card">
+    <div class="meal-header" onclick="toggleMeal('snidanok')">
+      <div>
+        <div class="meal-title">☀️ Сніданок</div>
+        <div class="meal-sub">1 елемент</div>
+      </div>
+      <div class="meal-badge">85 ккал</div>
+    </div>
+    <div class="meal-body" id="snidanok">
+      <div class="food-item">
+        <div>
+          <div class="food-title">Кава розчинна з цукром</div>
+          <div class="food-sub"><span style="color:var(--p-color)">2б</span> · <span style="color:var(--f-color)">1ж</span> · <span style="color:var(--c-color)">22в</span></div>
+        </div>
+        <div class="food-right">
+          <div><div style="font-size:10px; color:var(--text-sub);">350 г</div><strong>85</strong></div>
+          <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meal-card">
+    <div class="meal-header" onclick="toggleMeal('obid')">
+      <div>
+        <div class="meal-title">🍴 Обід</div>
+        <div class="meal-sub">1 елемент</div>
+      </div>
+      <div class="meal-badge">655 ккал</div>
+    </div>
+    <div class="meal-body open" id="obid">
+      <div class="food-item">
+        <div>
+          <div class="food-title">Ескалоп апетитний</div>
+          <div class="food-sub"><span style="color:var(--p-color)">21б</span> · <span style="color:var(--f-color)">28ж</span> · <span style="color:var(--c-color)">0в</span></div>
+        </div>
+        <div class="food-right">
+          <div><div style="font-size:10px; color:var(--text-sub);">160 г</div><strong>655</strong></div>
+          <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meal-card">
+    <div class="meal-header" onclick="toggleMeal('perekus')">
+      <div>
+        <div class="meal-title">🍏 Перекус</div>
+        <div class="meal-sub">0 елементів</div>
+      </div>
+      <div class="meal-badge">0 ккал</div>
+    </div>
+    <div class="meal-body" id="perekus"></div>
+  </div>
+
+  <div class="meal-card">
+    <div class="meal-header" onclick="toggleMeal('vecherya')">
+      <div>
+        <div class="meal-title">🌙 Вечеря</div>
+        <div class="meal-sub">0 елементів</div>
+      </div>
+      <div class="meal-badge">0 ккал</div>
+    </div>
+    <div class="meal-body" id="vecherya"></div>
+  </div>
+
+  <!-- Нижній ШІ-Чат -->
+  <div class="floating-bar">
+    <div class="target-pill" id="autoMealPill" onclick="cycleMealTarget()">🌙 Записую в <b>Вечерю</b> ⓘ</div>
+    <div class="chat-row">
+      <input type="text" id="aiInput" placeholder="Опиши страву чи тригер..." onkeypress="handleKeyPress(event)">
+      <div class="chat-actions">
+        <span class="barcode-btn" onclick="triggerBarcodeScan()" title="Сканувати штрих-код">🏷️</span>
+        <span class="cam-btn" onclick="triggerPhotoUpload()" title="ШІ-скан фото страви">📷</span>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(this)">
+        <button class="send-btn" onclick="processAIInput()">Додати</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- БОКОВЕ МЕНЮ -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="toggleMenu()"></div>
+
+  <!-- ОВЕРЛЕЙ КАМЕРИ ДЛЯ СКАНУВАННЯ ШТРИХКОДІВ -->
+  <div id="barcodeScanOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:999; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <video id="barcodeVideo" playsinline muted style="width:100%; max-width:420px; border-radius:12px; background:#111;"></video>
+    <div id="barcodeScanStatus" style="color:#fff; margin-top:14px; font-size:13px; text-align:center;">📷 Наведи камеру на штрихкод...</div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button style="padding:10px 16px; background:#333; color:#fff; border:none; border-radius:8px; font-size:13px;" onclick="closeBarcodeScanner()">Скасувати</button>
+      <button class="btn-gold" style="padding:10px 16px; border:none; border-radius:8px; font-size:13px;" onclick="manualBarcodeFallback()">Ввести вручну</button>
+    </div>
+  </div>
+
+  <!-- ФОРМА РУЧНОГО ДОДАВАННЯ ТОВАРУ (коли штрихкод не знайдено в базі) -->
+  <div id="manualAddOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:999; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:#18191d; border-radius:14px; padding:16px; width:100%; max-width:360px; max-height:90vh; overflow-y:auto;">
+      <h3 style="color:#fff; margin:0 0 4px; font-size:15px;">➕ Додати товар вручну</h3>
+      <div id="manualAddIntro" style="font-size:11px; color:var(--text-sub); margin-bottom:10px;"></div>
+      <div class="input-group" style="margin-bottom:8px;">
+        <label>Назва товару</label>
+        <input type="text" id="manualName" placeholder="напр. Йогурт грецький 2%">
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-bottom:10px;" onclick="aiEstimateManualProduct()">🪄 Оцінити через ШІ за назвою</button>
+      <div class="form-grid">
+        <div class="input-group"><label>Ккал</label><input type="number" id="manualKcal" value="0"></div>
+        <div class="input-group"><label>Білки (г)</label><input type="number" id="manualP" value="0"></div>
+        <div class="input-group"><label>Жири (г)</label><input type="number" id="manualF" value="0"></div>
+        <div class="input-group"><label>Вуглеводи (г)</label><input type="number" id="manualC" value="0"></div>
+      </div>
+      <div class="input-group" style="margin-bottom:8px;">
+        <label>Порція</label>
+        <input type="text" id="manualPortion" value="1 порція">
+      </div>
+      <div id="manualAddStatus" style="font-size:11px; color:var(--text-sub); margin-bottom:8px; min-height:14px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button style="flex:1; padding:10px; background:#333; color:#fff; border:none; border-radius:8px;" onclick="closeManualAdd()">Скасувати</button>
+        <button class="btn-gold" style="flex:1; padding:10px; border:none; border-radius:8px; font-weight:700;" onclick="confirmManualAdd()">Додати</button>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-menu" id="drawerMenu">
+    <div class="drawer-header">
+      <h3 style="color:#fff;">⚙️ Розумне Меню</h3>
+      <div class="icon-btn" style="width:30px; height:30px;" onclick="toggleMenu()">×</div>
+    </div>
+
+    <!-- 1. ПРОФІЛЬ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('profileSub')">
+      <span>👤 Мій Профіль & Цілі</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="profileSub">
+      <div class="form-grid">
+        <div class="input-group">
+          <label>Вік (років)</label>
+          <input type="number" id="userAge" value="26"></div>
+        <div class="input-group">
+          <label>Зріст (см)</label>
+          <input type="number" id="userHeight" value="178">
+        </div>
+        <div class="input-group">
+          <label>Поточна вага (кг)</label>
+          <input type="number" id="userWeight" value="75">
+        </div>
+        <div class="input-group">
+          <label>Цільова вага (кг)</label>
+          <input type="number" id="targetWeight" value="70">
+        </div>
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="saveProfileButton()">💾 Зберегти дані</button>
+      <div id="profileSaveStatus" style="font-size:10px; color:var(--text-sub); margin-top:6px;"></div>
+    </div>
+
+    <!-- 2. АДАПТИВНИЙ КОРЕКТОР TDEE -->
+    <div class="menu-item-btn" onclick="toggleSubContent('adaptiveSub')">
+      <span>🔄 Адаптивний Коректор TDEE</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="adaptiveSub">
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Введи вагу за минулий тиждень:</div>
+      <div class="form-grid">
+        <div class="input-group"><label>Вага 7 днів тому</label><input type="number" id="pastWeight" value="75.4"></div>
+        <div class="input-group"><label>Вага зараз</label><input type="number" id="nowWeight" value="75.0"></div>
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="runAdaptiveCorrection()">Запустити адаптацію цілі</button>
+    </div>
+
+    <!-- 2.5 ПРОГРЕС: ГРАФІК ВАГИ ТА КАЛОРІЙ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('progressSub'); renderProgressChart();">
+      <span>📈 Прогрес (Графік)</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="progressSub">
+      <div id="progressChartBox"></div>
+      <button class="btn-small btn-gold" style="width:100%; padding:6px; margin-top:8px;" onclick="renderProgressChart()">🔄 Оновити графік</button>
+    </div>
+
+    <!-- 2.6 ШІ-ЗВІТ ЗА ТИЖДЕНЬ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('weeklyReportSub')">
+      <span>🪄 ШІ-Звіт за Тиждень</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="weeklyReportSub">
+      <div style="font-size:11px; color:#aaa; margin-bottom:8px;">ШІ проаналізує твої реальні дані за останні 7 днів і знайде патерни та поради.</div>
+      <div id="weeklyReportBox" style="font-size:12px; color:#fff; background:#18191d; padding:8px; border-radius:8px; display:none; line-height:1.45;"></div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="generateWeeklyReport()">✨ Згенерувати звіт</button>
+    </div>
+
+    <!-- 3. ГНУЧКИЙ БАНК КАЛОРІЙ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('bankSub')">
+      <span>👥 Гнучкий Банк Калорій</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="bankSub">
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#101114; padding:8px; border-radius:8px; margin-bottom:6px;">
+        <span>Накопичено в банку:</span>
+        <strong id="menuBankVal" style="color:var(--accent-gold);">+0 ккал</strong>
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:6px;" onclick="transferBankToDay()">Перенести накопичене на сьогодні</button>
+    </div>
+
+    <!-- 4. ЗАМІРИ ТІЛА -->
+    <div class="menu-item-btn" onclick="toggleSubContent('bodyMeasuresSub')">
+      <span>📐 Заміри Тіла (см)</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="bodyMeasuresSub">
+      <div class="form-grid">
+        <div class="input-group"><label>Груди</label><input type="number" value="98"></div>
+        <div class="input-group"><label>Талія</label><input type="number" value="81"></div>
+        <div class="input-group"><label>Стегна</label><input type="number" value="96"></div>
+        <div class="input-group"><label>Шия</label><input type="number" value="39"></div>
+      </div>
+    </div>
+
+    <!-- 5. НАУКОВІ РОЗРАХУНКИ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('calcSub')">
+      <span>🎯 Наукові Розрахунки TDEE</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="calcSub">
+      <div class="calc-card">
+        <div><div style="font-size:12px; color:var(--text-sub);">Підтримання маси</div></div>
+        <div class="calc-val" id="calcMaint">2200 ккал</div>
+      </div>
+      <div class="calc-card" style="border-left-color: var(--c-color);">
+        <div><div style="font-size:12px; color:var(--c-color);">Схуднення (-15%)</div></div>
+        <div class="calc-val" id="calcLoss">1870 ккал</div>
+      </div>
+      <div class="calc-card" style="border-left-color: var(--accent-gold);">
+        <div><div style="font-size:12px; color:var(--text-sub);">Індекс маси тіла (ІМТ)</div></div>
+        <div class="calc-val" id="calcBmi" style="font-size:16px;">—</div>
+      </div>
+    </div>
+
+    <!-- 6. ПСИХОЛОГІЯ ТА НАУКОВІ ФАКТИ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('sciencePsychSub')">
+      <span>🧠 Психологія & Наукові факти</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content open" id="sciencePsychSub">
+      <div class="ai-bubble" id="aiBubbleBox">
+        <span id="aiBubbleIcon">🤖</span>
+        <div id="aiBubbleText">Завантаження наукового інсайту...</div>
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="rotateAIPTip()">🔄 Оновити факт</button>
+    </div><!-- 7. БАЗА ПРОДУКТІВ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('productsCatalogSub')">
+      <span>🥗 База Продуктів</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="productsCatalogSub">
+      <input type="text" class="search-input" placeholder="🔍 Швидкий пошук продукту..." onkeyup="filterProducts(this.value)">
+      <div class="catalog-list" id="productsCatalogList"></div>
+    </div>
+
+    <!-- 8. ОЦІНКА «НА ОКО» (ПОВНИЙ НАБІР ВАРІАНТІВ) -->
+    <div class="menu-item-btn" onclick="toggleSubContent('eyeSub')">
+      <span>👁️ Оцінка порцій «На око» (Всі методи)</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="eyeSub">
+      <div class="eye-grid">
+        <div class="eye-box">✊ <b>Кулак</b><br>150-200г (Каші, овочі, фрукти)</div>
+        <div class="eye-box">✋ <b>Долоня</b><br>100-120г (М'ясо, риба, птиця)</div>
+        <div class="eye-box">🤲 <b>Жменя (дві руки)</b><br>30-50г (Горіхи, ягоди, снеки)</div>
+        <div class="eye-box">👍 <b>Великий палець</b><br>~15г (Олія, соуси, 1 ст.л.)</div>
+        <div class="eye-box">👆 <b>Кінчик пальця</b><br>~5г (Масло, цукор, 1 ч.л.)</div>
+        <div class="eye-box">🧀 <b>Вказівний палець</b><br>~30г (Брусочок сиру)</div>
+        <div class="eye-box">🎾 <b>Тенісний м'яч</b><br>~150г (Цілі фрукти, порція каші)</div>
+        <div class="eye-box">🎲 <b>Гральний кубик</b><br>~15-20г (Сир, вершкове масло)</div>
+        <div class="eye-box">🎴 <b>Колода карт</b><br>~90-100г (Стейк, філе)</div>
+        <div class="eye-box">📦 <b>Сірникові коробки</b><br>~30г (Шматок сиру або риби)</div>
+      </div>
+    </div>
+
+    <!-- 9. КНИГА РЕЦЕПТІВ ТА ШІ-ГЕНЕРАТОР -->
+    <div class="menu-item-btn" onclick="toggleSubContent('recipesSub')">
+      <span>📖 Книга Рецептів & ШІ-Генератор</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="recipesSub">
+      <div style="background:#101114; padding:8px; border-radius:8px; margin-bottom:10px; border: 1px dashed rgba(198, 155, 82, 0.4);">
+        <div style="font-size:11px; color:var(--accent-gold); font-weight:700; margin-bottom:4px;">🍳 ШІ: Що приготувати з того, що є вдома?</div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Введи продукти через кому:</div>
+        <input type="text" class="search-input" id="fridgeInput" placeholder="напр. яйця, шпинат, сир..." style="margin-bottom:6px;">
+        <button class="btn-small btn-gold" style="width:100%; padding:6px; margin-bottom:6px;" onclick="generateFridgeRecipe()">Згенерувати страву ✨</button>
+        <div id="fridgeResult" style="font-size:12px; color:#fff; background:#18191d; padding:6px; border-radius:6px; display:none;"></div>
+      </div>
+
+      <input type="text" class="search-input" placeholder="🔍 Пошук готових рецептів..." onkeyup="filterRecipes(this.value)">
+      <div class="catalog-list" id="recipesCatalogList"></div>
+    </div>
+
+    <!-- 10. ШІ-ПОМІЧНИК (НАЛАШТУВАННЯ) -->
+    <div class="menu-item-btn" onclick="toggleSubContent('aiSettingsSub')">
+      <span>🔑 ШІ-помічник (API ключ)</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="aiSettingsSub">
+      <div style="font-size:11px; color:#aaa; margin-bottom:8px; line-height:1.4;">
+        Встав безкоштовний Google Gemini API-ключ, щоб чат внизу екрана розпізнавав страви й відповідав на запитання. Ключ зберігається лише на цьому телефоні (у пам'яті браузера) і надсилається напряму на generativelanguage.googleapis.com.<br><br>
+        Як отримати ключ (безкоштовно, без карти): відкрий <span style="color:var(--accent-gold);">aistudio.google.com/apikey</span> → увійди Google-акаунтом → «Create API key» → скопіюй і встав нижче.
+      </div>
+      <div class="input-group" style="margin-bottom:8px;">
+        <label>Gemini API ключ (AIza...)</label>
+        <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="saveApiKey()">💾 Зберегти ключ</button>
+      <div id="apiKeyStatus" style="font-size:10px; color:var(--text-sub); margin-top:6px;"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let userGoalKcal = 1870;
+    let currentEatenKcal = 740;
+    let currentWater = 1250;
+    let calorieBank = 0;
+
+    let selectedCalendarDate = new Date();
+    let calendarWeekStart = getMonday(new Date());
+
+    const weekdayNames = ['НД', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+    const monthNames = [
+      'січень', 'лютий', 'березень', 'квітень', 'травень', 'червень',
+      'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'
+    ];
+
+    function dateKey(date) {
+      return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    }
+
+    function getMonday(date) {
+      const result = new Date(date);
+      const day = result.getDay();
+      result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
+      result.setHours(0, 0, 0, 0);
+      return result;
+    }
+
+    function renderCalendar() {
+      const calendar = document.getElementById('calendarWeek');
+      const title = document.getElementById('calendarMonthTitle');
+      const label = document.getElementById('selectedDateLabel');
+      const todayKey = dateKey(new Date());
+      calendar.innerHTML = '';
+
+      for (let index = 0; index < 7; index += 1) {
+        const date = new Date(calendarWeekStart);
+        date.setDate(calendarWeekStart.getDate() + index);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'calendar-day';
+        if (dateKey(date) === todayKey) button.classList.add('today');
+        if (dateKey(date) === dateKey(selectedCalendarDate)) button.classList.add('active');
+        button.innerHTML = `${weekdayNames[date.getDay()]}<span class="date-number">${date.getDate()}</span>`;
+        button.addEventListener('click', () => selectCalendarDate(date));
+        calendar.appendChild(button);
+      }
+
+      const first = calendarWeekStart;
+      const last = new Date(calendarWeekStart);
+      last.setDate(last.getDate() + 6);
+      title.innerText = first.getMonth() === last.getMonth()
+        ? `${monthNames[first.getMonth()]} ${first.getFullYear()}`
+        : `${monthNames[first.getMonth()]} – ${monthNames[last.getMonth()]} ${last.getFullYear()}`;
+      label.innerText = `Обрано: ${selectedCalendarDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    }
+
+    function selectCalendarDate(date) {
+      saveCurrentDayLog();
+      selectedCalendarDate = new Date(date);
+      loadDayIntoView(selectedCalendarDate);
+      renderCalendar();
+    }
+
+    function changeCalendarWeek(days) {
+      calendarWeekStart.setDate(calendarWeekStart.getDate() + days);
+      renderCalendar();
+    }
+
+    function goToToday() {
+      saveCurrentDayLog();
+      selectedCalendarDate = new Date();
+      calendarWeekStart = getMonday(selectedCalendarDate);
+      loadDayIntoView(selectedCalendarDate);
+      renderCalendar();
+    }
+
+    const mealsList = [
+      { id: 'snidanok', name: 'Сніданок', icon: '☀️' },
+      { id: 'obid', name: 'Обід', icon: '🍴' },
+      { id: 'perekus', name: 'Перекус', icon: '🍏' },
+      { id: 'vecherya', name: 'Вечерю', icon: '🌙' }
+    ];
+    let selectedMealIndex = 3;
+
+    // ===== ІСТОРІЯ ЩОДЕННИКА ПО ДНЯХ (localStorage) =====
+    const HISTORY_STORAGE_KEY = 'foodDiaryHistory';
+
+    function getHistoryStore() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '{}'); } catch (e) { return {}; }
+    }
+    function saveHistoryStore(store) {
+      try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
+    }
+
+    function foodItemHTML(name, kcal, p, f, c, portion) {
+      return `
+        <div class="food-item">
+          <div>
+            <div class="food-title">${name}</div>
+            <div class="food-sub">
+              <span style="color:var(--p-color)">${p}б</span> ·
+              <span style="color:var(--f-color)">${f}ж</span> ·
+              <span style="color:var(--c-color)">${c}в</span>
+            </div>
+          </div>
+          <div class="food-right">
+            <div><div style="font-size:10px; color:var(--text-sub);">${portion}</div><strong>${kcal}</strong></div>
+            <div class="del-btn" onclick="removeFoodItem(this)" title="Прибрати">×</div>
+          </div>
+        </div>`;
+    }
+
+    function captureDayLog() {
+      const meals = {};
+      mealsList.forEach(m => {
+        const container = document.getElementById(m.id);
+        const items = [];
+        if (container) {
+          container.querySelectorAll('.food-item').forEach(el => {
+            const title = el.querySelector('.food-title')?.textContent || '';
+            const subSpans = el.querySelectorAll('.food-sub span');
+            const p = subSpans[0] ? parseFloat(subSpans[0].textContent) || 0 : 0;
+            const f = subSpans[1] ? parseFloat(subSpans[1].textContent) || 0 : 0;
+            const c = subSpans[2] ? parseFloat(subSpans[2].textContent) || 0 : 0;
+            const portionEl = el.querySelector('.food-right > div > div');
+            const portion = portionEl ? portionEl.textContent : '';
+            const kcalEl = el.querySelector('.food-right strong');
+            const kcal = kcalEl ? (parseFloat(kcalEl.textContent) || 0) : 0;
+            items.push({ name: title, kcal, p, f, c, portion });
+          });
+        }
+        meals[m.id] = items;
+      });
+      const existing = getHistoryStore()[dateKey(selectedCalendarDate)] || {};
+      return { meals, water: currentWater, weight: (typeof existing.weight === 'number') ? existing.weight : null };
+    }
+
+    function saveCurrentDayLog() {
+      const store = getHistoryStore();
+      store[dateKey(selectedCalendarDate)] = captureDayLog();
+      saveHistoryStore(store);
+    }
+
+    function renderDayLog(log) {
+      mealsList.forEach(m => {
+        const container = document.getElementById(m.id);
+        if (!container) return;
+        const items = (log && log.meals && log.meals[m.id]) || [];
+        container.innerHTML = items.map(it => foodItemHTML(it.name, it.kcal, it.p, it.f, it.c, it.portion)).join('');
+      });
+      currentWater = (log && typeof log.water === 'number') ? log.water : 0;
+      const waterEl = document.getElementById('waterVal');
+      if (waterEl) waterEl.innerText = currentWater;
+      if (typeof window.updateTotalsFromDOM === 'function') window.updateTotalsFromDOM();
+    }
+
+    function loadDayIntoView(date) {
+      const store = getHistoryStore();
+      const log = store[dateKey(date)];
+      renderDayLog(log || { meals: {}, water: 0, weight: null });
+    }
+
+    function logTodayWeight(weight) {
+      const store = getHistoryStore();
+      const key = dateKey(new Date());
+      if (!store[key]) store[key] = { meals: { snidanok: [], obid: [], perekus: [], vecherya: [] }, water: 0, weight: null };
+      store[key].weight = weight;
+      saveHistoryStore(store);
+    }
+
+    function renderProgressChart() {
+      const box = document.getElementById('progressChartBox');
+      if (!box) return;
+      const store = getHistoryStore();
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = dateKey(d);
+        const log = store[key];
+        let kcal = 0;
+        if (log && log.meals) {
+          Object.values(log.meals).forEach(items => (items || []).forEach(it => { kcal += Number(it.kcal) || 0; }));
+        }
+        days.push({ label: weekdayNames[d.getDay()], kcal, weight: log && typeof log.weight === 'number' ? log.weight : null });
+      }
+
+      const w = 300, h = 110, padL = 26, padB = 16, padT = 10, padR = 6;
+      const chartW = w - padL - padR;
+      const chartH = h - padT - padB;
+      const gap = chartW / days.length;
+      const barW = gap * 0.55;
+      const maxKcal = Math.max(userGoalKcal, ...days.map(d => d.kcal), 1);
+
+      let bars = '';
+      days.forEach((d, i) => {
+        const barH = (d.kcal / maxKcal) * chartH;
+        const x = padL + i * gap + (gap - barW) / 2;
+        const y = padT + chartH - barH;
+        const color = d.kcal === 0 ? '#333' : (d.kcal <= userGoalKcal ? 'var(--c-color)' : 'var(--accent-gold)');
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH, 1).toFixed(1)}" rx="2" fill="${color}"></rect>`;
+        bars += `<text x="${(x + barW / 2).toFixed(1)}" y="${h - 4}" font-size="8" fill="#8e8e93" text-anchor="middle">${d.label}</text>`;
+      });
+      const goalY = padT + chartH - Math.min(userGoalKcal / maxKcal, 1) * chartH;
+      const goalLine = `<line x1="${padL}" y1="${goalY.toFixed(1)}" x2="${w - padR}" y2="${goalY.toFixed(1)}" stroke="var(--accent-gold)" stroke-width="1" stroke-dasharray="3,3"></line>`;
+
+      const kcalSvg = `
+        <div style="font-size:10px; color:var(--text-sub); margin-bottom:2px;">🔥 Калорії за день (пунктир — ціль)</div>
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto;">${bars}${goalLine}</svg>
+      `;
+
+      const weightPoints = days.map((d, i) => ({ i, weight: d.weight })).filter(p => p.weight !== null);
+      let weightSvg = '<div style="font-size:11px; color:var(--text-sub); margin-top:8px;">Ще немає даних про вагу за ці дні. Збережи вагу в профілі, щоб з\'явився графік.</div>';
+      if (weightPoints.length >= 1) {
+        const weights = weightPoints.map(p => p.weight);
+        const minW = Math.min(...weights) - 0.3;
+        const maxW = Math.max(...weights) + 0.3;
+        const range = Math.max(maxW - minW, 0.1);
+        const pointsAttr = weightPoints.map(p => {
+          const x = padL + p.i * gap + gap / 2;
+          const y = padT + chartH - ((p.weight - minW) / range) * chartH;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const dots = weightPoints.map(p => {
+          const x = padL + p.i * gap + gap / 2;
+          const y = padT + chartH - ((p.weight - minW) / range) * chartH;
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--p-color)"></circle><text x="${x.toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="8" fill="#fff" text-anchor="middle">${p.weight}</text>`;
+        }).join('');
+        const labels = days.map((d, i) => {
+          const x = padL + i * gap + gap / 2;
+          return `<text x="${x.toFixed(1)}" y="${h - 4}" font-size="8" fill="#8e8e93" text-anchor="middle">${d.label}</text>`;
+        }).join('');
+        weightSvg = `
+          <div style="font-size:10px; color:var(--text-sub); margin:8px 0 2px;">⚖️ Вага (кг)</div>
+          <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto;">
+            <polyline points="${pointsAttr}" fill="none" stroke="var(--p-color)" stroke-width="1.5"></polyline>
+            ${dots}${labels}
+          </svg>
+        `;
+      }
+
+      box.innerHTML = kcalSvg + weightSvg;
+    }
+
+    window.generateWeeklyReport = async function () {
+      const box = document.getElementById('weeklyReportBox');
+      const apiKey = getApiKey();
+
+      if (!apiKey) {
+        box.style.display = 'block';
+        box.innerHTML = `<span style="color:var(--accent-gold);">Додай безкоштовний Gemini API-ключ у меню ☰ → «🔑 ШІ-помічник», щоб звіт запрацював.</span>`;
+        return;
+      }
+
+      box.style.display = 'block';
+      box.innerHTML = `<span style="color:#aaa;">⏳ ШІ аналізує твій тиждень...</span>`;
+
+      const store = getHistoryStore();
+      const rows = [];
+      let daysWithData = 0;
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = dateKey(d);
+        const log = store[key];
+        let kcal = 0, p = 0, f = 0, c = 0, items = 0;
+        if (log && log.meals) {
+          Object.values(log.meals).forEach(arr => (arr || []).forEach(it => {
+            kcal += Number(it.kcal) || 0; p += Number(it.p) || 0; f += Number(it.f) || 0; c += Number(it.c) || 0; items++;
+          }));
+        }
+        if (items > 0) daysWithData++;
+        rows.push(`${d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'numeric' })}: ${Math.round(kcal)} ккал (Б${Math.round(p)}/Ж${Math.round(f)}/В${Math.round(c)}), вода ${log ? (log.water || 0) : 0}мл${log && typeof log.weight === 'number' ? `, вага ${log.weight}кг` : ''}${items === 0 ? ' — немає записів' : ''}`);
+      }
+      const dataText = rows.join('\n');
+
+      const systemPrompt = `Ти — персональний ШІ-нутриціолог застосунку трекінгу харчування. Тобі дають РЕАЛЬНІ дані користувача за останні 7 днів: калорії, макро (Б/Ж/В у грамах), вода, вага (де є). Денна ціль користувача: ${userGoalKcal} ккал.
+Проаналізуй патерни: переїдання чи недоїдання у певні дні, нестача білка/клітковини, нерегулярність, тренд ваги відносно балансу калорій, недостатнє пиття води тощо. Будь конкретним і чесним, але підтримуючим, без осуду.
+Днів із реальними записами: ${daysWithData} з 7. Якщо даних менше 3 днів — чесно зазнач у "summary", що для глибокого аналізу трендів потрібно більше днів історії, і дай короткий коментар лише по тому, що є, не вигадуючи неіснуючі патерни.
+Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень і без markdown-огорож \`\`\`. Формат:
+{"summary":"загальний висновок, 1-2 речення","insights":["конкретний інсайт 1","інсайт 2","інсайт 3 (опційно)"],"tip":"одна конкретна порада на наступний тиждень"}`;
+
+      try {
+        const result = await callGeminiWithRetry(systemPrompt, `Дані за 7 днів:\n${dataText}`, apiKey, {
+          maxTokens: 700,
+          maxAttempts: 3,
+          onRetry: (attempt, max) => {
+            box.innerHTML = `<span style="color:#aaa;">⏳ Сервер ШІ перевантажений, пробую ще раз (${attempt}/${max - 1})...</span>`;
+          }
+        });
+
+        const insightsHtml = (result.insights || []).map(t => `<li style="margin-bottom:4px;">${t}</li>`).join('');
+        box.innerHTML = `
+          <div style="font-weight:700; color:var(--accent-gold); margin-bottom:6px;">📋 ${result.summary || 'Звіт готовий'}</div>
+          <ul style="margin:0 0 8px 16px; padding:0;">${insightsHtml}</ul>
+          ${result.tip ? `<div style="border-left:2px solid var(--c-color); padding-left:8px; color:#ddd;"><b>💡 Порада на тиждень:</b> ${result.tip}</div>` : ''}
+        `;
+      } catch (err) {
+        box.innerHTML = `<span style="color:var(--accent-gold);">Помилка ШІ: ${err.message || 'спробуй ще раз'}.</span>`;
+      }
+    };
+
+    // Локальний запасний набір фактів (якщо ще немає ключа або ШІ недоступний)
+    const sciencePsychologyTips = [
+      { icon: "🧠", text: "Психологія харчування: Тригерне переїдання часто викликане не голодом, а емоційним виснаженням. Чашка теплого чаю знижує рівень кортизолу." },
+      { icon: "🔬", text: "Науковий факт: Термічний ефект білків вимагає до 30% енергії на їх засвоєння. Тобто з 100 ккал білка тіло витрачає 30 на перетравлення!" },
+      { icon: "💡", text: "Когнітивне спотворення: Один «неправильний» прийом їжі не знищує тижневий прогрес, як одне пробите колесо не робить машину непридатною." },{ icon: "💧", text: "Нейробіологія: Центри спраги та голоду в мозку (гіпоталамус) розташовані поруч. Часто мозок плутає зневоднення з голодом — випий води." },
+      { icon: "⚖️", text: "Наука метаболізму: Вага на вагах коливається на 1-2 кг щодня через затримку води і глікогену. Оцінюй тренд лише за середнім тижневим значенням." },
+      { icon: "🧘‍♀️", text: "Психологічний якір: Повільне пережовування їжі активує рецептори ситості в блукаючому нерві на 15-20 хвилин раніше, запобігаючи переїданню." }
+    ];
+    let currentTipIndex = 0;
+
+    const FACTS_HISTORY_KEY = 'aiFactsHistory';
+    function getFactsHistory() {
+      try { return JSON.parse(localStorage.getItem(FACTS_HISTORY_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function pushFactHistory(text) {
+      const hist = getFactsHistory();
+      hist.push(text);
+      while (hist.length > 12) hist.shift();
+      try { localStorage.setItem(FACTS_HISTORY_KEY, JSON.stringify(hist)); } catch (e) { /* ignore */ }
+    }
+
+    window.rotateAIPTip = async function () {
+      const iconEl = document.getElementById('aiBubbleIcon');
+      const textEl = document.getElementById('aiBubbleText');
+      const apiKey = getApiKey();
+
+      if (!apiKey) {
+        currentTipIndex = (currentTipIndex + 1) % sciencePsychologyTips.length;
+        const tip = sciencePsychologyTips[currentTipIndex];
+        iconEl.innerText = tip.icon;
+        textEl.innerText = `${tip.text} (додай Gemini-ключ у меню ☰, щоб ШІ генерував нові факти щоразу)`;
+        return;
+      }
+
+      iconEl.innerText = '⏳';
+      textEl.innerText = 'ШІ генерує новий факт...';
+
+      const history = getFactsHistory();
+      const systemPrompt = `Ти генеруєш ОДИН короткий цікавий факт українською мовою для застосунку трекінгу харчування — з психології харчування, поведінкової науки, нейробіології голоду/апетиту, метаболізму або наукових досліджень про їжу. Тема кожного разу має бути РІЗНОЮ і випадковою — не зациклюйся на одній підтемі.
+Ці факти вже показувались раніше, НІКОЛИ їх не повторюй і не перефразовуй: ${history.length ? history.join(' | ') : 'ще жодного не було'}.
+Відповідай ЛИШЕ одним JSON-об'єктом без пояснень і без markdown-огорож: {"icon":"один емодзі що пасує темі","text":"факт українською, 20-40 слів, конкретний і корисний, без markdown"}`;
+
+      try {
+        const result = await callGeminiWithRetry(systemPrompt, 'Згенеруй один новий унікальний факт.', apiKey, { maxTokens: 400, maxAttempts: 2 });
+        iconEl.innerText = result.icon || '🧠';
+        textEl.innerText = result.text || 'Не вдалося згенерувати факт.';
+        if (result.text) pushFactHistory(result.text);
+      } catch (err) {
+        const tip = sciencePsychologyTips[Math.floor(Math.random() * sciencePsychologyTips.length)];
+        iconEl.innerText = tip.icon;
+        textEl.innerText = `${tip.text} (ШІ тимчасово недоступний: ${err.message})`;
+      }
+    };
+
+    const databaseProducts = [
+      { name: 'Куряче філе (сире)', kcal: 110, p: 23, f: 1.2, c: 0 },
+      { name: 'Гречка (варена)', kcal: 110, p: 4, f: 1, c: 21 },
+      { name: 'Яйце куряче (1 шт)', kcal: 78, p: 6, f: 5, c: 0.6 },
+      { name: 'Сир кисломолочний 5%', kcal: 121, p: 17, f: 5, c: 3 },
+      { name: 'Лосось філе', kcal: 208, p: 20, f: 13, c: 0 },
+      { name: 'Авокадо', kcal: 160, p: 2, f: 15, c: 9 }
+    ];
+
+    const recipesBook = [
+      { name: '🍳 Вівсяномлет з сиром', time: '7 хв', desc: '30г вівсянки, 2 яйця, 30г сулугуні.', kcal: 340, p: 22, f: 18, c: 20 },
+      { name: '🥗 Салат з тунцем та яйцем', time: '5 хв', desc: 'Тунець 80г, 1 варене яйце, огірок.', kcal: 220, p: 26, f: 10, c: 4 }
+    ];
+
+    function toggleMenu() {
+      document.getElementById('drawerOverlay').classList.toggle('active');
+      document.getElementById('drawerMenu').classList.toggle('active');
+    }
+
+    function toggleSubContent(id) {
+      document.getElementById(id).classList.toggle('open');
+    }
+
+    const PROFILE_STORAGE_KEY = 'userProfileData';
+
+    function saveProfileData() {
+      const data = {
+        age: document.getElementById('userAge').value,
+        height: document.getElementById('userHeight').value,
+        weight: document.getElementById('userWeight').value,
+        targetWeight: document.getElementById('targetWeight').value
+      };
+      try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+    }
+
+    function loadProfileData() {
+      try {
+        const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.age) document.getElementById('userAge').value = data.age;
+        if (data.height) document.getElementById('userHeight').value = data.height;
+        if (data.weight) document.getElementById('userWeight').value = data.weight;
+        if (data.targetWeight) document.getElementById('targetWeight').value = data.targetWeight;
+      } catch (e) { /* ignore */ }
+    }
+
+    function saveProfileButton() {
+      recalculateNorms();
+      const weight = parseFloat(document.getElementById('userWeight').value);
+      if (!isNaN(weight)) logTodayWeight(weight);
+      const status = document.getElementById('profileSaveStatus');
+      if (status) status.textContent = '✅ Дані збережено на цьому телефоні.';
+    }
+
+    function recalculateNorms() {
+      const age = parseFloat(document.getElementById('userAge').value) || 25;
+      const height = parseFloat(document.getElementById('userHeight').value) || 175;
+      const weight = parseFloat(document.getElementById('userWeight').value) || 75;
+
+      const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+      const tdee = Math.round(bmr * 1.375);
+      const loss = Math.round(tdee * 0.85);
+
+      document.getElementById('calcMaint').innerText = tdee + ' ккал';
+      document.getElementById('calcLoss').innerText = loss + ' ккал';
+      userGoalKcal = loss;
+
+      const heightM = height / 100;
+      const bmi = heightM > 0 ? weight / (heightM * heightM) : 0;
+      let bmiCategory = 'Норма';
+      if (bmi < 18.5) bmiCategory = 'Недостатня вага';
+      else if (bmi < 25) bmiCategory = 'Норма';
+      else if (bmi < 30) bmiCategory = 'Надлишкова вага';
+      else bmiCategory = 'Ожиріння';
+      const bmiEl = document.getElementById('calcBmi');
+      if (bmiEl) bmiEl.innerText = `${bmi.toFixed(1)} · ${bmiCategory}`;
+
+      saveProfileData();
+      updateDisplayValues();
+    }
+
+    function runAdaptiveCorrection() {
+      const past = parseFloat(document.getElementById('pastWeight').value);
+      const now = parseFloat(document.getElementById('nowWeight').value);
+      const diff = now - past;
+
+      if (diff > 0) {
+        userGoalKcal -= 100;
+        alert('🔄 Адаптивний коректор: вага зросла. Мета зменшена на 100 ккал для стабілізації.');
+      } else {
+        alert('🔄 Адаптивний коректор: динаміка супер! Твій організм адаптувався до цілі.');
+      }
+      updateDisplayValues();
+    }
+
+    function transferBankToDay() {
+      if (calorieBank <= 0) { alert("Банк порожній!"); return; }
+      userGoalKcal += calorieBank;
+      alert(`👥 Успішно перенесено +${calorieBank} ккал з банку на сьогодні!`);
+      calorieBank = 0;
+      document.getElementById('menuBankVal').innerText = '0 ккал';
+      document.getElementById('bankDisplay').innerText = '0 ккал';
+      updateDisplayValues();
+    }
+
+    window.generateFridgeRecipe = async function () {
+      const inputEl = document.getElementById('fridgeInput');
+      const ingredients = inputEl.value.trim();
+      const resultBox = document.getElementById('fridgeResult');
+      if (!ingredients) {
+        alert("Введи хоча б кілька продуктів з холодильника!");
+        return;
+      }
+
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `<span style="color:var(--accent-gold);">Додай безкоштовний Gemini API-ключ у меню ☰ → «🔑 ШІ-помічник», щоб генератор рецептів запрацював.</span>`;
+        return;
+      }
+
+      resultBox.style.display = 'block';
+      resultBox.innerHTML = `<span style="color:#aaa;">⏳ ШІ придумує страву з твоїх інгредієнтів...</span>`;
+
+      const systemPrompt = `Ти — кулінарний ШІ-генератор застосунку для трекінгу харчування. Користувач перелічує продукти, які має вдома. Придумай ОДНУ конкретну, реалістичну й апетитну страву, яку можна приготувати переважно з цих продуктів (сіль, перець, олія, вода — доступні за замовчуванням, не обов'язково їх згадувати). Оціни реалістичну харчову цінність готової страви.
+Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень і без markdown-огорож \`\`\`. Формат:
+{"name":"назва страви з одним доречним емодзі на початку","desc":"короткий опис що з чим змішати/приготувати, до 15 слів","kcal":число,"protein":число,"fat":число,"carbs":число,"portion":"вага готової порції, напр. 250г"}`;
+
+      try {
+        const result = await callGeminiWithRetry(systemPrompt, `Продукти вдома: ${ingredients}`, apiKey, {
+          maxTokens: 500,
+          maxAttempts: 3,
+          onRetry: (attempt, max) => {
+            resultBox.innerHTML = `<span style="color:#aaa;">⏳ Сервер ШІ перевантажений, пробую ще раз (${attempt}/${max - 1})...</span>`;
+          }
+        });
+
+        const name = (result.name || '🍽️ Страва від ШІ').replace(/'/g, '’');
+        const desc = result.desc || '';
+        const kcal = Math.round(Number(result.kcal)) || 0;
+        const p = Math.round(Number(result.protein)) || 0;
+        const f = Math.round(Number(result.fat)) || 0;
+        const c = Math.round(Number(result.carbs)) || 0;
+        const portion = (result.portion || 'порція').replace(/'/g, '’');
+
+        resultBox.innerHTML = `
+          <div style="font-weight:700; color:var(--accent-gold); margin-bottom:2px;">${name}</div>
+          <div style="color:#aaa; font-size:10px; margin-bottom:4px;">${desc}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px;"><b>${kcal} ккал</b> (${p}б·${f}ж·${c}в, ${portion})</span>
+            <button class="btn-small btn-gold" onclick="addCustomFood('${name}', ${kcal}, ${p}, ${f}, ${c}, '${portion}')">Додати</button>
+          </div>
+        `;
+      } catch (err) {
+        resultBox.innerHTML = `<span style="color:var(--accent-gold);">Помилка ШІ: ${err.message || 'спробуй ще раз'}.</span>`;
+      }
+    };
+
+
+    function updateDisplayValues() {
+      const remain = Math.max(0, userGoalKcal - currentEatenKcal);
+      const pct = Math.min(100, Math.round((currentEatenKcal / userGoalKcal) * 100));
+
+      document.getElementById('remainKcalDisplay').innerText = remain;
+      document.getElementById('progressFill').style.width = `${pct}%`;
+
+      let batteryText = `Ресурс оптимальний (${pct}%)`;
+      if (pct > 90) batteryText = 'Батарейка повна! Енергії вдосталь 🔥';
+      document.getElementById('batteryStatusText').innerText = batteryText;
+    }
+
+    function renderProducts(items) {
+      const container = document.getElementById('productsCatalogList');
+      container.innerHTML = '';
+      items.forEach(prod => {
+        const item = document.createElement('div');
+        item.className = 'catalog-item';
+        item.innerHTML = `
+          <div>
+            <b>${prod.name}</b>
+            <div style="font-size:10px; color:#8e8e93;">${prod.kcal} ккал | ${prod.p}б · ${prod.f}ж · ${prod.c}в (100г)</div>
+          </div>
+          <button class="btn-small btn-gold" onclick="addCustomFood('${prod.name}', ${prod.kcal}, ${prod.p}, ${prod.f}, ${prod.c}, '100г')">+ Додати</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function filterProducts(query) {
+      const q = query.toLowerCase();
+      renderProducts(databaseProducts.filter(p => p.name.toLowerCase().includes(q)));
+    }
+
+    function renderRecipes(items) {
+      const container = document.getElementById('recipesCatalogList');
+      container.innerHTML = '';
+      items.forEach(rec => {
+        const item = document.createElement('div');
+        item.className = 'recipe-card';
+        item.innerHTML = `
+          <div class="recipe-header">
+            <span>${rec.name}</span>
+            <span style="font-size:11px; color:var(--accent-gold);">⏱️ ${rec.time}</span>
+          </div>
+          <div style="font-size:11px; color:#aaa; margin-bottom:6px;">${rec.desc}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; font-weight:700;">${rec.kcal} ккал</span>
+            <button class="btn-small btn-gold" onclick="addCustomFood('${rec.name}', ${rec.kcal}, ${rec.p}, ${rec.f}, ${rec.c}, 'порція')">В щоденник</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function filterRecipes(query) {
+      const q = query.toLowerCase();
+      renderRecipes(recipesBook.filter(r => r.name.toLowerCase().includes(q)));
+    }
+
+    function addCustomFood(name, kcal, p, f, c, portion) {
+      const currentMeal = mealsList[selectedMealIndex];
+      const targetContainer = document.getElementById(currentMeal.id);
+
+      currentEatenKcal += kcal;
+      targetContainer.innerHTML += `
+        <div class="food-item">
+          <div>
+            <div class="food-title">${name}</div>
+            <div class="food-sub">
+              <span style="color:var(--p-color)">${p}б</span> ·
+              <span style="color:var(--f-color)">${f}ж</span> ·
+              <span style="color:var(--c-color)">${c}в</span>
+            </div>
+          </div>
+          <div class="food-right">
+            <div><div style="font-size:10px; color:var(--text-sub);">${portion}</div><strong>${kcal}</strong></div>
+            <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
+          </div>
+        </div>
+      `;
+
+      targetContainer.classList.add('open');
+      document.getElementById('totalKcalDisplay').innerText = currentEatenKcal;
+      document.getElementById('topKcalBadge').innerText = `${currentEatenKcal} ккал`;
+      updateDisplayValues();
+    }
+
+    function processAIInput() {
+      const input = document.getElementById('aiInput');
+      if (!input.value.trim()) return;
+      addCustomFood(input.value.trim(), 210, 15, 7, 20, '150г');
+      input.value = '';
+    }
+
+    function triggerPhotoUpload() {
+      alert('📷 ШІ-скан: фото розпізнано! Додано салат овочевий (~180 ккал).');
+      addCustomFood('Салат овочевий (ШІ-скан)', 180, 3, 10, 8, '200г');
+    }
+
+    function triggerBarcodeScan() {
+      alert('🏷️ Сканер штрих-кодів: продукт знайдено. Додано батончик (210 ккал).');
+      addCustomFood('Протеїновий батончик', 210, 20, 6, 15, '60г');
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') processAIInput();
+    }
+
+    function toggleMeal(id) {
+      const meal = document.getElementById(id);
+      if (meal) meal.classList.toggle('open');
+    }
+
+    function addWater(amount) {
+      currentWater += amount;
+      document.getElementById('waterVal').innerText = currentWater;
+      saveCurrentDayLog();
+    }
+
+    function cycleMealTarget() {
+      selectedMealIndex = (selectedMealIndex + 1) % mealsList.length;
+      const current = mealsList[selectedMealIndex];
+      document.getElementById('autoMealPill').innerHTML = `
+        ${current.icon} Записую в <b>${current.name}</b> ⓘ
+      `;
+    }
+
+    loadProfileData();
+    recalculateNorms();
+    renderCalendar();
+    renderProducts(databaseProducts);
+    renderRecipes(recipesBook);
+    updateDisplayValues();
+    renderProgressChart();
+
+    // Автозбереження щоденника: будь-яка зміна страв у прийомах їжі зберігається на телефон
+    let dayLogSaveTimer = null;
+    mealsList.forEach(m => {
+      const el = document.getElementById(m.id);
+      if (!el) return;
+      const observer = new MutationObserver(() => {
+        clearTimeout(dayLogSaveTimer);
+        dayLogSaveTimer = setTimeout(saveCurrentDayLog, 300);
+      });
+      observer.observe(el, { childList: true });
+    });
+  </script>
+<style>
+  .ai-status { margin: 6px 0 0; padding: 7px 9px; border-radius: 9px; background: #202227; color: #d9d9df; font-size: 11px; line-height: 1.35; display: none; }
+  .ai-status.show { display: block; }
+  .ai-status.ok { border-left: 3px solid var(--c-color); }
+  .ai-status.warn { border-left: 3px solid var(--accent-gold); }
+  .food-item.ai-added { animation: aiAdded .45s ease-out; }
+  @keyframes aiAdded { from { background: rgba(198,155,82,.22); } to { background: transparent; } }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  const barcodeProducts = {
+    '4820000123456': { name: 'Йогурт натуральний', kcal: 61, p: 4.3, f: 3.2, c: 4.7, portion: '100г' },
+    '4820198877665': { name: 'Протеїновий батончик', kcal: 210, p: 20, f: 6, c: 15, portion: '60г' },
+    '4601234567890': { name: 'Вівсяні пластівці', kcal: 366, p: 12, f: 6, c: 61, portion: '100г' }
+  };
+
+  function mealForHour(hour) {
+    if (hour >= 5 && hour < 11) return 0;
+    if (hour >= 11 && hour < 16) return 1;
+    if (hour >= 16 && hour < 18) return 2;
+    if (hour >= 18 && hour < 24) return 3;
+    return 2;
+  }
+
+  function setAIStatus(message, type) {
+    let box = document.getElementById('aiStatusBox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'aiStatusBox';
+      box.className = 'ai-status';
+      const bar = document.querySelector('.floating-bar');
+      if (bar) bar.appendChild(box);
+    }
+    box.textContent = message;
+    box.className = `ai-status show ${type || 'ok'}`;
+  }
+
+  function updateMealPill() {
+    const current = mealsList[selectedMealIndex];
+    const pill = document.getElementById('autoMealPill');
+    if (pill) pill.innerHTML = `${current.icon} Записую до <b>${current.name}</b> ⓘ`;
+  }
+
+  function updateTotalsFromDOM() {
+    let kcal = 0;
+    document.querySelectorAll('.food-item').forEach(item => {
+      const value = item.querySelector('.food-right strong');
+      if (value) kcal += Number(String(value.textContent).replace(',', '.')) || 0;
+    });
+    currentEatenKcal = kcal;
+    const total = document.getElementById('totalKcalDisplay');
+    const badge = document.getElementById('topKcalBadge');
+    if (total) total.textContent = kcal;
+    if (badge) badge.textContent = `${kcal} ккал`;
+    document.querySelectorAll('.meal-card').forEach(card => {
+      const body = card.querySelector('.meal-body');
+      const badgeEl = card.querySelector('.meal-badge');
+      const sub = card.querySelector('.meal-sub');
+      if (!body || !badgeEl || !sub) return;
+      let mealKcal = 0;
+      body.querySelectorAll('.food-item strong').forEach(v => mealKcal += Number(v.textContent) || 0);
+      badgeEl.textContent = `${mealKcal} ккал`;
+      const count = body.querySelectorAll('.food-item').length;
+      sub.textContent = `${count} ${count === 1 ? 'елемент' : 'елементів'}`;
+    });
+    updateDisplayValues();
+  }
+
+  window.removeFoodItem = function (button) {
+    const item = button && button.closest('.food-item');
+    if (item) item.remove();
+    updateTotalsFromDOM();
+    setAIStatus('Страву прибрано з прийому їжі та перераховано добовий підсумок.', 'ok');
+  };
+
+  window.addCustomFood = function (name, kcal, p, f, c, portion) {
+    const currentMeal = mealsList[selectedMealIndex];
+    const targetContainer = document.getElementById(currentMeal.id);
+    if (!targetContainer) return;
+    targetContainer.insertAdjacentHTML('beforeend', `
+      <div class="food-item ai-added">
+        <div><div class="food-title"></div><div class="food-sub"><span style="color:var(--p-color)">${p}б</span> · <span style="color:var(--f-color)">${f}ж</span> · <span style="color:var(--c-color)">${c}в</span></div></div>
+        <div class="food-right"><div><div style="font-size:10px; color:var(--text-sub);">${portion}</div><strong>${kcal}</strong></div><div class="del-btn" onclick="removeFoodItem(this)" title="Прибрати">×</div></div>
+      </div>`);
+    const last = targetContainer.lastElementChild;
+    if (last) last.querySelector('.food-title').textContent = name;
+    targetContainer.classList.add('open');
+    updateTotalsFromDOM();
+  };
+
+  function findProduct(query) {
+    const normalized = query.toLowerCase().trim();
+    return databaseProducts.find(p => normalized.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(normalized)) ||
+      databaseProducts.find(p => p.name.toLowerCase().split(/[ (]/)[0].startsWith(normalized.split(/[ ,(]/)[0]));
+  }
+
+  function getApiKey() {
+    return localStorage.getItem('geminiApiKey') || '';
+  }
+
+  window.saveApiKey = function () {
+    const input = document.getElementById('apiKeyInput');
+    const status = document.getElementById('apiKeyStatus');
+    const value = input.value.trim();
+    if (!value) {
+      if (status) status.textContent = 'Введи дійсний API-ключ.';
+      return;
+    }
+    localStorage.setItem('geminiApiKey', value);
+    if (status) status.textContent = '✅ Ключ збережено на цьому телефоні.';
+    setAIStatus('Ключ збережено. ШІ-помічник активний — можна писати страви в чат.', 'ok');
+  };
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function callGeminiJSON(systemPrompt, userText, apiKey, maxTokens, imagePart) {
+    const parts = [{ text: userText }];
+    if (imagePart) parts.push(imagePart);
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: maxTokens || 1024,
+          thinkingConfig: { thinkingLevel: 'low' }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).error?.message || ''; } catch (e) { /* ignore */ }
+      throw new Error(detail || `Помилка ${response.status}`);
+    }
+
+    const data = await response.json();
+    const part = data.candidates?.[0]?.content?.parts?.find(p => p.text);
+    if (!part) throw new Error('Порожня відповідь ШІ (можливо, забракло ліміту токенів)');
+    try {
+      return JSON.parse(part.text.trim());
+    } catch (e) {
+      throw new Error('ШІ дав неповну відповідь, спробуй ще раз');
+    }
+  }
+
+  async function callGeminiWithRetry(systemPrompt, userText, apiKey, options) {
+    options = options || {};
+    const maxTokens = options.maxTokens || 1024;
+    const maxAttempts = options.maxAttempts || 3;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await callGeminiJSON(systemPrompt, userText, apiKey, maxTokens, options.imagePart);
+      } catch (err) {
+        lastErr = err;
+        const overloaded = /high demand|overloaded|503|unavailable/i.test(err.message || '');
+        if (overloaded && attempt < maxAttempts) {
+          if (options.onRetry) options.onRetry(attempt, maxAttempts);
+          await sleep(1200 * attempt);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
+  }
+
+  // Доступ до цих функцій потрібен і з іншого <script>-блоку (факти, генератор рецептів)
+  window.getApiKey = getApiKey;
+  window.callGeminiWithRetry = callGeminiWithRetry;
+  window.updateTotalsFromDOM = updateTotalsFromDOM;
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const idx = result.indexOf(',');
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  window.triggerPhotoUpload = function () {
+    const input = document.getElementById('photoInput');
+    if (input) input.click();
+  };
+
+  window.handlePhotoSelected = async function (inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setAIStatus('Додай безкоштовний Gemini API-ключ у меню ☰ → «🔑 ШІ-помічник», щоб фото-аналіз запрацював.', 'warn');
+      inputEl.value = '';
+      return;
+    }
+
+    setAIStatus('📷 ШІ аналізує фото страви...', 'ok');
+
+    try {
+      const base64 = await fileToBase64(file);
+      const currentMeal = mealsList[selectedMealIndex];
+      const systemPrompt = `Ти — ШІ, що аналізує фото їжі для застосунку трекінгу харчування. Подивись на фото і визнач, яка страва на ньому зображена, оціни розмір порції на фото та реалістичну харчову цінність.
+Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень і без markdown-огорож \`\`\`. Формат:
+{"name":"назва страви українською з одним доречним емодзі на початку","kcal":число,"protein":число,"fat":число,"carbs":число,"portion":"вага порції, напр. 250г"}
+Якщо на фото немає їжі або її не розпізнати — став "name":"" і "kcal":0.`;
+
+      const result = await callGeminiWithRetry(systemPrompt, 'Проаналізуй це фото страви і оціни його харчову цінність.', apiKey, {
+        maxTokens: 500,
+        maxAttempts: 2,
+        imagePart: { inline_data: { mime_type: file.type || 'image/jpeg', data: base64 } },
+        onRetry: (attempt, max) => setAIStatus(`Сервер ШІ перевантажений, пробую ще раз (${attempt}/${max - 1})...`, 'warn')
+      });
+
+      if (!result.name || !Number(result.kcal)) {
+        setAIStatus('ШІ не зміг розпізнати їжу на фото. Спробуй чіткіше фото або опиши страву текстом у чаті.', 'warn');
+        return;
+      }
+
+      const kcal = Math.round(Number(result.kcal)) || 0;
+      const p = Math.round(Number(result.protein)) || 0;
+      const f = Math.round(Number(result.fat)) || 0;
+      const c = Math.round(Number(result.carbs)) || 0;
+      addCustomFood(result.name, kcal, p, f, c, result.portion || 'порція');
+      setAIStatus(`📷 Розпізнано: «${result.name}» (~${kcal} ккал). Додано до ${currentMeal.name.toLowerCase()}.`, 'ok');
+    } catch (err) {
+      setAIStatus(`Помилка фото-аналізу: ${err.message || 'спробуй ще раз'}.`, 'warn');
+    } finally {
+      inputEl.value = '';
+    }
+  };
+
+  async function askAI(userText, apiKey, onRetry) {
+    const currentMeal = mealsList[selectedMealIndex];
+    const existingItems = Array.from(document.querySelectorAll('.food-title'))
+      .map(el => el.textContent.trim()).filter(Boolean);
+
+    const systemPrompt = `Ти — ШІ-помічник застосунку "Розумний Щоденник" для трекінгу харчування. Користувач пише українською: описує з'їдену страву, просить прибрати запис, або ставить загальне питання.
+Обраний зараз прийом їжі: "${currentMeal.name}".
+Поточні страви в щоденнику: ${existingItems.length ? existingItems.join(', ') : 'порожньо'}.
+
+Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень, без markdown-огорож \`\`\`, без жодного тексту поза JSON. Формат:
+{"action":"add|remove|answer","items":[{"name":"","kcal":0,"protein":0,"fat":0,"carbs":0,"portion":""}],"query":"","message":""}
+
+Правила:
+- "add": користувач описав з'їдену страву чи продукт. У "items" — одна або кілька страв із реалістичною оцінкою калорій і КБЖВ на вказану (або типову) порцію. "message" — коротке дружнє підтвердження (до 15 слів).
+- "remove": користувач просить прибрати/видалити/забрати страву. "query" — ключове слово з назви страви для пошуку серед поточних. "message" — коротке підтвердження.
+- "answer": будь-яке інше повідомлення (питання, порада, мотивація). "message" — відповідь до 40 слів, без markdown.
+Завжди заповнюй "message" українською.`;
+
+    return callGeminiWithRetry(systemPrompt, userText, apiKey, { maxTokens: 2048, maxAttempts: 3, onRetry });
+  }
+
+  function handleAIResult(result, originalText) {
+    if (result.action === 'add' && Array.isArray(result.items) && result.items.length) {
+      result.items.forEach(it => {
+        addCustomFood(
+          it.name || originalText,
+          Number(it.kcal) || 0,
+          Number(it.protein) || 0,
+          Number(it.fat) || 0,
+          Number(it.carbs) || 0,
+          it.portion || 'порція'
+        );
+      });
+      setAIStatus(result.message || 'Додано до щоденника.', 'ok');
+    } else if (result.action === 'remove') {
+      const query = (result.query || originalText).toLowerCase().trim();
+      let removed = 0;
+      document.querySelectorAll('.food-item').forEach(item => {
+        const title = item.querySelector('.food-title');
+        if (title && (title.textContent.toLowerCase().includes(query) || query.includes(title.textContent.toLowerCase()))) {
+          item.remove(); removed++;
+        }
+      });
+      updateTotalsFromDOM();
+      setAIStatus(removed ? (result.message || 'Прибрано.') : `Не знайшов «${result.query || originalText}» у щоденнику.`, removed ? 'ok' : 'warn');
+    } else {
+      setAIStatus(result.message || 'Готово.', 'ok');
+    }
+  }
+
+  window.processAIInput = async function () {
+    const input = document.getElementById('aiInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    // Якщо ввели просто цифри (штрихкод) — не даємо загальному ШІ вигадувати дані,
+    // а йдемо напряму в реальну базу товарів
+    const digitsOnly = text.replace(/\s|-/g, '');
+    if (/^\d{8,14}$/.test(digitsOnly)) {
+      input.value = '';
+      await lookupBarcode(digitsOnly);
+      return;
+    }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setAIStatus('Спершу додай безкоштовний Gemini API-ключ: меню ☰ → «🔑 ШІ-помічник (API ключ)».', 'warn');
+      return;
+    }
+
+    input.value = '';
+    input.disabled = true;
+    setAIStatus('ШІ аналізує запис...', 'ok');
+
+    try {
+      const result = await askAI(text, apiKey, (attempt, max) => {
+        setAIStatus(`Сервер ШІ перевантажений, пробую ще раз (${attempt}/${max - 1})...`, 'warn');
+      });
+      handleAIResult(result, text);
+    } catch (err) {
+      setAIStatus(`Помилка звʼязку з ШІ: ${err.message || 'спробуй ще раз'}.`, 'warn');
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  };
+
+  async function lookupBarcode(normalized) {
+    setAIStatus(`🏷️ Шукаю штрихкод ${normalized} у базі Open Food Facts...`, 'ok');
+    try {
+      const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${normalized}.json`);
+      if (!resp.ok) throw new Error(`Помилка ${resp.status}`);
+      const data = await resp.json();
+
+      if (data.status === 1 && data.product) {
+        const product = data.product;
+        const n = product.nutriments || {};
+        const name = product.product_name_uk || product.product_name || `Товар ${normalized}`;
+        const kcal = Math.round(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0);
+        const p = Math.round(n['proteins_100g'] || 0);
+        const f = Math.round(n['fat_100g'] || 0);
+        const c = Math.round(n['carbohydrates_100g'] || 0);
+        addCustomFood(name, kcal, p, f, c, '100г');
+        setAIStatus(`🏷️ Знайдено в базі: «${name}» (${kcal} ккал/100г). Додано до щоденника.`, 'ok');
+        return;
+      }
+
+      const localProduct = barcodeProducts[normalized];
+      if (localProduct) {
+        addCustomFood(localProduct.name, localProduct.kcal, localProduct.p, localProduct.f, localProduct.c, localProduct.portion);
+        setAIStatus(`Знайдено локально: «${localProduct.name}». Додано до щоденника.`, 'ok');
+        return;
+      }
+
+      setAIStatus(`Штрихкод ${normalized} не знайдено в базі — заповни картку товару вручну.`, 'warn');
+      openManualAdd(normalized);
+    } catch (err) {
+      const localProduct = barcodeProducts[normalized];
+      if (localProduct) {
+        addCustomFood(localProduct.name, localProduct.kcal, localProduct.p, localProduct.f, localProduct.c, localProduct.portion);
+        setAIStatus(`Онлайн-база недоступна, знайдено локально: «${localProduct.name}».`, 'warn');
+        return;
+      }
+      setAIStatus(`Помилка пошуку штрихкоду: ${err.message || 'спробуй ще раз'}. Можеш додати товар вручну.`, 'warn');
+      openManualAdd(normalized);
+    }
+  }
+
+  async function manualBarcodeEntry() {
+    const code = prompt('Введи 8–14 цифр штрихкоду продукту (або скасуй):');
+    if (code === null) return;
+    const normalized = code.replace(/\D/g, '');
+    if (!normalized) { setAIStatus('Штрихкод не введено.', 'warn'); return; }
+    await lookupBarcode(normalized);
+  }
+
+  let barcodeStream = null;
+  let barcodeDetectLoop = null;
+
+  window.closeBarcodeScanner = function () {
+    const overlay = document.getElementById('barcodeScanOverlay');
+    if (overlay) overlay.style.display = 'none';
+    if (barcodeDetectLoop) { clearInterval(barcodeDetectLoop); barcodeDetectLoop = null; }
+    if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
+  };
+
+  window.manualBarcodeFallback = async function () {
+    window.closeBarcodeScanner();
+    await manualBarcodeEntry();
+  };
+
+  async function openBarcodeCameraScanner() {
+    const overlay = document.getElementById('barcodeScanOverlay');
+    const video = document.getElementById('barcodeVideo');
+    const statusEl = document.getElementById('barcodeScanStatus');
+    if (!overlay || !video) { await manualBarcodeEntry(); return; }
+
+    overlay.style.display = 'flex';
+    statusEl.textContent = '📷 Наведи камеру на штрихкод...';
+
+    try {
+      barcodeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = barcodeStream;
+      await video.play();
+
+      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] });
+
+      barcodeDetectLoop = setInterval(async () => {
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) {
+            const raw = codes[0].rawValue || '';
+            const normalized = raw.replace(/\D/g, '');
+            window.closeBarcodeScanner();
+            if (normalized) {
+              await lookupBarcode(normalized);
+            } else {
+              setAIStatus(`Розпізнано код «${raw}», але це не схоже на штрихкод продукту.`, 'warn');
+            }
+          }
+        } catch (e) { /* тимчасова помилка детекції — пробуємо далі */ }
+      }, 400);
+    } catch (err) {
+      statusEl.textContent = `Не вдалося увімкнути камеру: ${err.message || 'доступ заборонено'}. Спробуй ввести код вручну.`;
+    }
+  }
+
+  window.triggerBarcodeScan = async function () {
+    if ('BarcodeDetector' in window) {
+      await openBarcodeCameraScanner();
+    } else {
+      await manualBarcodeEntry();
+    }
+  };
+
+  window.openManualAdd = function (barcode) {
+    const overlay = document.getElementById('manualAddOverlay');
+    if (!overlay) return;
+    document.getElementById('manualName').value = '';
+    document.getElementById('manualKcal').value = 0;
+    document.getElementById('manualP').value = 0;
+    document.getElementById('manualF').value = 0;
+    document.getElementById('manualC').value = 0;
+    document.getElementById('manualPortion').value = '1 порція';
+    document.getElementById('manualAddStatus').textContent = '';
+    document.getElementById('manualAddIntro').textContent = barcode
+      ? `Штрихкод ${barcode} не знайдено в базі. Введи назву й натисни «Оцінити через ШІ», або впиши цифри сам.`
+      : 'Введи назву товару, і ШІ сам оцінить калорійність — або впиши цифри вручну.';
+    overlay.dataset.barcode = barcode || '';
+    overlay.style.display = 'flex';
+    document.getElementById('manualName').focus();
+  };
+
+  window.closeManualAdd = function () {
+    const overlay = document.getElementById('manualAddOverlay');
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  window.confirmManualAdd = function () {
+    const overlay = document.getElementById('manualAddOverlay');
+    const name = document.getElementById('manualName').value.trim();
+    const status = document.getElementById('manualAddStatus');
+    if (!name) { status.textContent = 'Введи назву товару.'; return; }
+
+    const kcal = Math.round(parseFloat(document.getElementById('manualKcal').value)) || 0;
+    const p = Math.round(parseFloat(document.getElementById('manualP').value)) || 0;
+    const f = Math.round(parseFloat(document.getElementById('manualF').value)) || 0;
+    const c = Math.round(parseFloat(document.getElementById('manualC').value)) || 0;
+    const portion = document.getElementById('manualPortion').value.trim() || '1 порція';
+    const barcode = overlay ? overlay.dataset.barcode : '';
+    const fullName = barcode ? `${name} (штрихкод ${barcode})` : name;
+
+    addCustomFood(fullName, kcal, p, f, c, portion);
+    setAIStatus(`Додано вручну: «${name}» (${kcal} ккал).`, 'ok');
+    window.closeManualAdd();
+  };
+
+  window.aiEstimateManualProduct = async function () {
+    const name = document.getElementById('manualName').value.trim();
+    const status = document.getElementById('manualAddStatus');
+    if (!name) { status.textContent = 'Спершу введи назву товару.'; return; }
+
+    const apiKey = getApiKey();
+    if (!apiKey) { status.textContent = 'Додай безкоштовний Gemini-ключ у меню ☰, щоб ШІ міг оцінити калорійність.'; return; }
+
+    status.textContent = '⏳ ШІ оцінює калорійність...';
+    const systemPrompt = `Ти оцінюєш харчову цінність товару за назвою для застосунку трекінгу харчування. Дай реалістичну оцінку на стандартну порцію товару (або на 100г, якщо це сипучий/наливний продукт без чіткої "порції").
+Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень і без markdown-огорож. Формат:
+{"kcal":число,"protein":число,"fat":число,"carbs":число,"portion":"вага, напр. 100г"}`;
+
+    try {
+      const result = await callGeminiWithRetry(systemPrompt, name, apiKey, { maxTokens: 300, maxAttempts: 2 });
+      document.getElementById('manualKcal').value = Math.round(Number(result.kcal)) || 0;
+      document.getElementById('manualP').value = Math.round(Number(result.protein)) || 0;
+      document.getElementById('manualF').value = Math.round(Number(result.fat)) || 0;
+      document.getElementById('manualC').value = Math.round(Number(result.carbs)) || 0;
+      if (result.portion) document.getElementById('manualPortion').value = result.portion;
+      status.textContent = '✅ ШІ оцінив — перевір цифри і за потреби виправ.';
+    } catch (err) {
+      status.textContent = `Не вдалось оцінити: ${err.message || 'спробуй ще раз'}. Введи цифри вручну.`;
+    }
+  };
+
+  window.cycleMealTarget = function () {
+    selectedMealIndex = (selectedMealIndex + 1) % mealsList.length;
+    updateMealPill();
+  };
+
+  document.addEventListener('click', function (event) {
+    if (event.target.closest('.del-btn') && !event.target.getAttribute('onclick')?.includes('removeFoodItem')) {
+      setTimeout(updateTotalsFromDOM, 0);
+    }
+  });
+
+  const savedApiKey = getApiKey();
+  const apiKeyInputEl = document.getElementById('apiKeyInput');
+  if (apiKeyInputEl && savedApiKey) apiKeyInputEl.value = savedApiKey;
+
+  const now = new Date();
+  selectedMealIndex = mealForHour(now.getHours());
+  updateMealPill();
+  updateTotalsFromDOM();
+  setAIStatus(
+    savedApiKey
+      ? `Автовибір: зараз ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}, записую до «${mealsList[selectedMealIndex].name}». ШІ-помічник активний.`
+      : `Автовибір: зараз ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}, записую до «${mealsList[selectedMealIndex].name}». Додай API-ключ у меню ☰, щоб увімкнути ШІ.`,
+    'ok'
+  );
+
+  if (typeof window.rotateAIPTip === 'function') window.rotateAIPTip();
+
+  // Завантажити збережену історію сьогоднішнього дня (якщо є), інакше зберегти поточний стан як стартовий
+  if (typeof getHistoryStore === 'function') {
+    const todayKey = dateKey(new Date());
+    const store = getHistoryStore();
+    if (store[todayKey]) {
+      loadDayIntoView(new Date());
+    } else {
+      saveCurrentDayLog();
+    }
+  }
+})();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* не критично, якщо не вдалось */ });
+    });
+  }
+</script>
+
+</body>
+</html>
