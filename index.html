@@ -147,7 +147,7 @@
     <div class="icon-btn" onclick="toggleMenu()">☰</div>
     <div style="font-weight:700; font-size:16px;">Розумний Щоденник</div>
     <div class="top-right">
-      <div class="kcal-top-badge" id="topKcalBadge">740 ккал</div>
+      <div class="kcal-top-badge" id="topKcalBadge">0 ккал</div>
     </div>
   </div>
 
@@ -168,7 +168,7 @@
   <!-- СТАТИСТИКА ТА БАТАРЕЙКА ЕНЕРГІЇ -->
   <div class="summary-card">
     <div class="kcal-row">
-      <div class="kcal-num"><span id="totalKcalDisplay">740</span> <span style="font-size:13px;">з'їдено</span></div>
+      <div class="kcal-num"><span id="totalKcalDisplay">0</span> <span style="font-size:13px;">з'їдено</span></div>
       <div style="font-size:14px; color:var(--text-sub);"><strong style="color:#fff; font-size:18px;" id="remainKcalDisplay">1130</strong> лишилось</div>
     </div>
     
@@ -182,15 +182,15 @@
     <div class="bgu-grid">
       <div class="bgu-box">
         <div class="bgu-title">БІЛКИ</div>
-        <div class="bgu-val" style="color:var(--p-color);"><span id="pVal">28</span> <span id="pGoal">/144г</span></div>
+        <div class="bgu-val" style="color:var(--p-color);"><span id="pVal">0</span> <span id="pGoal">/144г</span></div>
       </div>
       <div class="bgu-box">
         <div class="bgu-title">ЖИРИ</div>
-        <div class="bgu-val" style="color:var(--f-color);"><span id="fVal">36</span> <span id="fGoal">/82г</span></div>
+        <div class="bgu-val" style="color:var(--f-color);"><span id="fVal">0</span> <span id="fGoal">/82г</span></div>
       </div>
       <div class="bgu-box">
         <div class="bgu-title">ВУГЛ</div>
-        <div class="bgu-val" style="color:var(--c-color);"><span id="cVal">68</span> <span id="cGoal">/120г</span></div>
+        <div class="bgu-val" style="color:var(--c-color);"><span id="cVal">0</span> <span id="cGoal">/120г</span></div>
       </div>
     </div>
 
@@ -216,44 +216,22 @@
     <div class="meal-header" onclick="toggleMeal('snidanok')">
       <div>
         <div class="meal-title">☀️ Сніданок</div>
-        <div class="meal-sub">1 елемент</div>
+        <div class="meal-sub">0 елементів</div>
       </div>
-      <div class="meal-badge">85 ккал</div>
+      <div class="meal-badge">0 ккал</div>
     </div>
-    <div class="meal-body" id="snidanok">
-      <div class="food-item">
-        <div>
-          <div class="food-title">Кава розчинна з цукром</div>
-          <div class="food-sub"><span style="color:var(--p-color)">2б</span> · <span style="color:var(--f-color)">1ж</span> · <span style="color:var(--c-color)">22в</span></div>
-        </div>
-        <div class="food-right">
-          <div><div style="font-size:10px; color:var(--text-sub);">350 г</div><strong>85</strong></div>
-          <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
-        </div>
-      </div>
-    </div>
+    <div class="meal-body" id="snidanok"></div>
   </div>
 
   <div class="meal-card">
     <div class="meal-header" onclick="toggleMeal('obid')">
       <div>
         <div class="meal-title">🍴 Обід</div>
-        <div class="meal-sub">1 елемент</div>
+        <div class="meal-sub">0 елементів</div>
       </div>
-      <div class="meal-badge">655 ккал</div>
+      <div class="meal-badge">0 ккал</div>
     </div>
-    <div class="meal-body open" id="obid">
-      <div class="food-item">
-        <div>
-          <div class="food-title">Ескалоп апетитний</div>
-          <div class="food-sub"><span style="color:var(--p-color)">21б</span> · <span style="color:var(--f-color)">28ж</span> · <span style="color:var(--c-color)">0в</span></div>
-        </div>
-        <div class="food-right">
-          <div><div style="font-size:10px; color:var(--text-sub);">160 г</div><strong>655</strong></div>
-          <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
-        </div>
-      </div>
-    </div>
+    <div class="meal-body" id="obid"></div>
   </div>
 
   <div class="meal-card">
@@ -350,6 +328,13 @@
           <label>Вік (років)</label>
           <input type="number" id="userAge" value="26"></div>
         <div class="input-group">
+          <label>Стать</label>
+          <select id="userGender">
+            <option value="female">Жіноча</option>
+            <option value="male">Чоловіча</option>
+          </select>
+        </div>
+        <div class="input-group">
           <label>Зріст (см)</label>
           <input type="number" id="userHeight" value="178">
         </div>
@@ -379,20 +364,29 @@
       <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="runAdaptiveCorrection()">Запустити адаптацію цілі</button>
     </div>
 
-    <!-- 2.5 ПРОГРЕС: ГРАФІК ВАГИ ТА КАЛОРІЙ -->
-    <div class="menu-item-btn" onclick="toggleSubContent('progressSub'); renderProgressChart();">
-      <span>📈 Прогрес (Графік)</span> <span>▼</span>
+    <!-- 2.5 ПРОГРЕС, ЗАМІРИ ТІЛА & ШІ-АНАЛІТИКА (об'єднано) -->
+    <div class="menu-item-btn" onclick="toggleSubContent('progressSub'); renderProgressChart(); calculateBodyComposition();">
+      <span>📊 Прогрес, Заміри & ШІ-Аналітика</span> <span>▼</span>
     </div>
     <div class="menu-item-content" id="progressSub">
-      <div id="progressChartBox"></div>
-      <button class="btn-small btn-gold" style="width:100%; padding:6px; margin-top:8px;" onclick="renderProgressChart()">🔄 Оновити графік</button>
-    </div>
 
-    <!-- 2.6 ШІ-ЗВІТ ЗА ТИЖДЕНЬ -->
-    <div class="menu-item-btn" onclick="toggleSubContent('weeklyReportSub')">
-      <span>🪄 ШІ-Звіт за Тиждень</span> <span>▼</span>
-    </div>
-    <div class="menu-item-content" id="weeklyReportSub">
+      <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;">📐 Заміри тіла (см)</div>
+      <div class="form-grid">
+        <div class="input-group"><label>Груди</label><input type="number" id="chestInput" value="98"></div>
+        <div class="input-group"><label>Талія</label><input type="number" id="waistInput" value="81"></div>
+        <div class="input-group"><label>Стегна</label><input type="number" id="hipsInput" value="96"></div>
+        <div class="input-group"><label>Шия</label><input type="number" id="neckInput" value="39"></div>
+      </div>
+      <button class="btn-small btn-gold" style="width:100%; padding:7px; margin-top:6px;" onclick="saveBodyMeasurements()">💾 Зберегти заміри</button>
+      <div id="measurementsStatus" style="font-size:10px; color:var(--text-sub); margin:4px 0 10px;"></div>
+
+      <div id="bodyCompositionBox" style="background:#101114; border-radius:8px; padding:8px; margin-bottom:12px; font-size:12px;"></div>
+
+      <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;">📈 Графік (7 днів)</div>
+      <div id="progressChartBox"></div>
+      <button class="btn-small btn-gold" style="width:100%; padding:6px; margin-top:8px; margin-bottom:12px;" onclick="renderProgressChart()">🔄 Оновити графік</button>
+
+      <div style="font-size:12px; font-weight:700; color:var(--accent-gold); margin-bottom:6px;">🪄 ШІ-Звіт за тиждень</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">ШІ проаналізує твої реальні дані за останні 7 днів і знайде патерни та поради.</div>
       <div id="weeklyReportBox" style="font-size:12px; color:#fff; background:#18191d; padding:8px; border-radius:8px; display:none; line-height:1.45;"></div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="generateWeeklyReport()">✨ Згенерувати звіт</button>
@@ -408,19 +402,6 @@
         <strong id="menuBankVal" style="color:var(--accent-gold);">+0 ккал</strong>
       </div>
       <button class="btn-small btn-gold" style="width:100%; padding:6px;" onclick="transferBankToDay()">Перенести накопичене на сьогодні</button>
-    </div>
-
-    <!-- 4. ЗАМІРИ ТІЛА -->
-    <div class="menu-item-btn" onclick="toggleSubContent('bodyMeasuresSub')">
-      <span>📐 Заміри Тіла (см)</span> <span>▼</span>
-    </div>
-    <div class="menu-item-content" id="bodyMeasuresSub">
-      <div class="form-grid">
-        <div class="input-group"><label>Груди</label><input type="number" value="98"></div>
-        <div class="input-group"><label>Талія</label><input type="number" value="81"></div>
-        <div class="input-group"><label>Стегна</label><input type="number" value="96"></div>
-        <div class="input-group"><label>Шия</label><input type="number" value="39"></div>
-      </div>
     </div>
 
     <!-- 5. НАУКОВІ РОЗРАХУНКИ -->
@@ -476,7 +457,12 @@
         <div class="eye-box">🎾 <b>Тенісний м'яч</b><br>~150г (Цілі фрукти, порція каші)</div>
         <div class="eye-box">🎲 <b>Гральний кубик</b><br>~15-20г (Сир, вершкове масло)</div>
         <div class="eye-box">🎴 <b>Колода карт</b><br>~90-100г (Стейк, філе)</div>
-        <div class="eye-box">📦 <b>Сірникові коробки</b><br>~30г (Шматок сиру або риби)</div>
+        <div class="eye-box">📦 <b>Сірникова коробка</b><br>~30г (Шматок сиру або риби)</div>
+        <div class="eye-box">🥄 <b>Чайна ложка (з гіркою)</b><br>~7г (Цукор, мед, крупа)</div>
+        <div class="eye-box">🥄 <b>Чайна ложка (без гірки)</b><br>~4г (Цукор, спеції)</div>
+        <div class="eye-box">🥄 <b>Столова ложка (з гіркою)</b><br>~20г (Крупа, цукор, борошно)</div>
+        <div class="eye-box">🥄 <b>Столова ложка (без гірки)</b><br>~12г (Олія, соус, мед)</div>
+        <div class="eye-box">💿 <b>CD-диск</b><br>~60-70г (Млинець, котлета, оладок)</div>
       </div>
     </div>
 
@@ -517,7 +503,7 @@
 
   <script>
     let userGoalKcal = 1870;
-    let currentEatenKcal = 740;
+    let currentEatenKcal = 0;
     let currentWater = 0;
     let calorieBank = 0;
 
@@ -689,6 +675,93 @@
       saveHistoryStore(store);
     }
 
+    function logTodayWaist(waist) {
+      const store = getHistoryStore();
+      const key = dateKey(new Date());
+      if (!store[key]) store[key] = { meals: { snidanok: [], obid: [], perekus: [], vecherya: [] }, water: 0, weight: null };
+      store[key].waist = waist;
+      saveHistoryStore(store);
+    }
+
+    const BODY_MEASUREMENTS_KEY = 'userBodyMeasurements';
+
+    function saveBodyMeasurementsData() {
+      const data = {
+        chest: document.getElementById('chestInput').value,
+        waist: document.getElementById('waistInput').value,
+        hips: document.getElementById('hipsInput').value,
+        neck: document.getElementById('neckInput').value
+      };
+      try { localStorage.setItem(BODY_MEASUREMENTS_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+    }
+
+    function loadBodyMeasurementsData() {
+      try {
+        const raw = localStorage.getItem(BODY_MEASUREMENTS_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.chest) document.getElementById('chestInput').value = data.chest;
+        if (data.waist) document.getElementById('waistInput').value = data.waist;
+        if (data.hips) document.getElementById('hipsInput').value = data.hips;
+        if (data.neck) document.getElementById('neckInput').value = data.neck;
+      } catch (e) { /* ignore */ }
+    }
+
+    function saveBodyMeasurements() {
+      saveBodyMeasurementsData();
+      const waist = parseFloat(document.getElementById('waistInput').value);
+      if (!isNaN(waist)) logTodayWaist(waist);
+      const status = document.getElementById('measurementsStatus');
+      if (status) status.textContent = '✅ Заміри збережено.';
+      calculateBodyComposition();
+    }
+
+    function calculateBodyComposition() {
+      const box = document.getElementById('bodyCompositionBox');
+      if (!box) return;
+      const chest = parseFloat(document.getElementById('chestInput').value) || 0;
+      const waist = parseFloat(document.getElementById('waistInput').value) || 0;
+      const hips = parseFloat(document.getElementById('hipsInput').value) || 0;
+      const neck = parseFloat(document.getElementById('neckInput').value) || 0;
+      const height = parseFloat(document.getElementById('userHeight').value) || 0;
+      const genderEl = document.getElementById('userGender');
+      const gender = genderEl ? genderEl.value : 'female';
+
+      if (!waist || !neck || !height || (gender === 'female' && !hips)) {
+        box.innerHTML = '<span style="color:var(--text-sub);">Заповни заміри (і зріст у профілі), щоб побачити розрахунки жиру, WHR і WHtR.</span>';
+        return;
+      }
+
+      let bodyFat = null;
+      if (gender === 'male' && waist > neck) {
+        bodyFat = 495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height)) - 450;
+      } else if (gender === 'female' && hips && (waist + hips) > neck) {
+        bodyFat = 495 / (1.29579 - 0.35004 * Math.log10(waist + hips - neck) + 0.22100 * Math.log10(height)) - 450;
+      }
+
+      let bodyFatCategory = '';
+      if (bodyFat !== null && isFinite(bodyFat)) {
+        const thresholds = gender === 'male' ? [6, 14, 18, 25] : [14, 21, 25, 32];
+        const labels = ['Дуже низький (спорт. мін.)', 'Атлетичний', 'Фітнес', 'Середній', 'Підвищений'];
+        let idx = thresholds.findIndex(t => bodyFat < t);
+        if (idx === -1) idx = labels.length - 1;
+        bodyFatCategory = labels[idx];
+      }
+
+      const whr = hips ? (waist / hips) : null;
+      const whrThreshold = gender === 'male' ? 0.90 : 0.85;
+      const whrRisk = whr !== null ? (whr > whrThreshold ? 'підвищений ризик' : 'у нормі') : '';
+
+      const whtr = height ? (waist / height) : null;
+      const whtrRisk = whtr !== null ? (whtr >= 0.6 ? 'високий ризик' : (whtr >= 0.5 ? 'підвищений ризик' : 'у нормі')) : '';
+
+      box.innerHTML = `
+        ${bodyFat !== null && isFinite(bodyFat) ? `<div style="margin-bottom:6px;"><b>Жир у тілі:</b> ${bodyFat.toFixed(1)}% <span style="color:var(--text-sub);">(${bodyFatCategory})</span></div>` : ''}
+        ${whr !== null ? `<div style="margin-bottom:6px;"><b>Талія/Стегна (WHR):</b> ${whr.toFixed(2)} <span style="color:var(--text-sub);">(${whrRisk})</span></div>` : ''}
+        ${whtr !== null ? `<div><b>Талія/Зріст (WHtR):</b> ${whtr.toFixed(2)} <span style="color:var(--text-sub);">(${whtrRisk})</span></div>` : ''}
+      `;
+    }
+
     function renderProgressChart() {
       const box = document.getElementById('progressChartBox');
       if (!box) return;
@@ -703,7 +776,12 @@
         if (log && log.meals) {
           Object.values(log.meals).forEach(items => (items || []).forEach(it => { kcal += Number(it.kcal) || 0; }));
         }
-        days.push({ label: weekdayNames[d.getDay()], kcal, weight: log && typeof log.weight === 'number' ? log.weight : null });
+        days.push({
+          label: weekdayNames[d.getDay()],
+          kcal,
+          weight: log && typeof log.weight === 'number' ? log.weight : null,
+          waist: log && typeof log.waist === 'number' ? log.waist : null
+        });
       }
 
       const w = 300, h = 110, padL = 26, padB = 16, padT = 10, padR = 6;
@@ -760,7 +838,37 @@
         `;
       }
 
-      box.innerHTML = kcalSvg + weightSvg;
+      const waistPoints = days.map((d, i) => ({ i, waist: d.waist })).filter(p => p.waist !== null);
+      let waistSvg = '<div style="font-size:11px; color:var(--text-sub); margin-top:8px;">Ще немає даних про талію. Збережи заміри вище, щоб з\'явився графік.</div>';
+      if (waistPoints.length >= 1) {
+        const waists = waistPoints.map(p => p.waist);
+        const minWa = Math.min(...waists) - 0.5;
+        const maxWa = Math.max(...waists) + 0.5;
+        const rangeWa = Math.max(maxWa - minWa, 0.1);
+        const pointsAttrWa = waistPoints.map(p => {
+          const x = padL + p.i * gap + gap / 2;
+          const y = padT + chartH - ((p.waist - minWa) / rangeWa) * chartH;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const dotsWa = waistPoints.map(p => {
+          const x = padL + p.i * gap + gap / 2;
+          const y = padT + chartH - ((p.waist - minWa) / rangeWa) * chartH;
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--c-color)"></circle><text x="${x.toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="8" fill="#fff" text-anchor="middle">${p.waist}</text>`;
+        }).join('');
+        const labelsWa = days.map((d, i) => {
+          const x = padL + i * gap + gap / 2;
+          return `<text x="${x.toFixed(1)}" y="${h - 4}" font-size="8" fill="#8e8e93" text-anchor="middle">${d.label}</text>`;
+        }).join('');
+        waistSvg = `
+          <div style="font-size:10px; color:var(--text-sub); margin:8px 0 2px;">📏 Талія (см)</div>
+          <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto;">
+            <polyline points="${pointsAttrWa}" fill="none" stroke="var(--c-color)" stroke-width="1.5"></polyline>
+            ${dotsWa}${labelsWa}
+          </svg>
+        `;
+      }
+
+      box.innerHTML = kcalSvg + weightSvg + waistSvg;
     }
 
     window.generateWeeklyReport = async function () {
@@ -913,6 +1021,7 @@
     function saveProfileData() {
       const data = {
         age: document.getElementById('userAge').value,
+        gender: document.getElementById('userGender').value,
         height: document.getElementById('userHeight').value,
         weight: document.getElementById('userWeight').value,
         targetWeight: document.getElementById('targetWeight').value
@@ -926,6 +1035,7 @@
         if (!raw) return;
         const data = JSON.parse(raw);
         if (data.age) document.getElementById('userAge').value = data.age;
+        if (data.gender) document.getElementById('userGender').value = data.gender;
         if (data.height) document.getElementById('userHeight').value = data.height;
         if (data.weight) document.getElementById('userWeight').value = data.weight;
         if (data.targetWeight) document.getElementById('targetWeight').value = data.targetWeight;
@@ -942,10 +1052,13 @@
 
     function recalculateNorms() {
       const age = parseFloat(document.getElementById('userAge').value) || 25;
+      const gender = document.getElementById('userGender').value || 'female';
       const height = parseFloat(document.getElementById('userHeight').value) || 175;
       const weight = parseFloat(document.getElementById('userWeight').value) || 75;
 
-      const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+      const bmr = gender === 'male'
+        ? (10 * weight) + (6.25 * height) - (5 * age) + 5
+        : (10 * weight) + (6.25 * height) - (5 * age) - 161;
       const tdee = Math.round(bmr * 1.375);
       const loss = Math.round(tdee * 0.85);
 
@@ -965,6 +1078,7 @@
 
       saveProfileData();
       updateDisplayValues();
+      if (typeof calculateBodyComposition === 'function') calculateBodyComposition();
     }
 
     function runAdaptiveCorrection() {
@@ -1079,8 +1193,18 @@
     }
 
     function filterProducts(query) {
-      const q = query.toLowerCase();
-      renderProducts(databaseProducts.filter(p => p.name.toLowerCase().includes(q)));
+      const container = document.getElementById('productsCatalogList');
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        container.innerHTML = '<div style="font-size:11px; color:var(--text-sub); padding:6px 2px;">Введи назву продукту, щоб знайти в базі...</div>';
+        return;
+      }
+      const matches = databaseProducts.filter(p => p.name.toLowerCase().includes(q));
+      if (!matches.length) {
+        container.innerHTML = '<div style="font-size:11px; color:var(--text-sub); padding:6px 2px;">Не знайдено в локальній базі. Спробуй описати продукт у чаті — ШІ оцінить сам.</div>';
+        return;
+      }
+      renderProducts(matches);
     }
 
     function renderRecipes(items) {
@@ -1188,9 +1312,11 @@
     }
 
     loadProfileData();
+    loadBodyMeasurementsData();
     recalculateNorms();
+    calculateBodyComposition();
     renderCalendar();
-    renderProducts(databaseProducts);
+    filterProducts('');
     filterRecipes('');
     updateDisplayValues();
     renderProgressChart();
@@ -1322,7 +1448,8 @@
   }
 
   // ===== БАГАТОКЛЮЧОВА СИСТЕМА (ротація при вичерпанні ліміту) =====
-  const MAX_API_KEYS = 10;
+  const MAX_API_KEYS = 30;
+  const API_KEYS_WARNING_THRESHOLD = 25;
   const DEFAULT_VISIBLE_KEY_SLOTS = 5;
   let activeKeyIndex = 0;
   let visibleKeySlots = 0;
@@ -1380,6 +1507,10 @@
       return;
     }
     createKeySlot(visibleKeySlots + 1, document.getElementById('extraApiKeysContainer'));
+    const status = document.getElementById('apiKeyStatus');
+    if (status && visibleKeySlots >= API_KEYS_WARNING_THRESHOLD) {
+      status.innerHTML = `⚠️ ${visibleKeySlots} ключів — це вже багато окремих проєктів з одного акаунта. Google офіційно не забороняє це, але при десятках проєктів, створених лише заради обходу лімітів, може звернути увагу. Раджу зупинитись, якщо вистачає поточної кількості.`;
+    }
   };
 
   function initApiKeyInputs() {
@@ -1673,6 +1804,35 @@
     }
   }
 
+  // ===== ЛОКАЛЬНИЙ КЕШ ЧАСТИХ ЗАПИСІВ (економить ліміт запитів на повторювані страви) =====
+  const AI_CACHE_KEY = 'aiChatCache';
+  const AI_CACHE_MAX_ENTRIES = 150;
+
+  function getAiCache() {
+    try {
+      const obj = JSON.parse(localStorage.getItem(AI_CACHE_KEY) || '{}');
+      return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) { return {}; }
+  }
+
+  function setAiCacheEntry(normalizedText, resultItems) {
+    try {
+      const cache = getAiCache();
+      cache[normalizedText] = { items: resultItems, ts: Date.now() };
+      const keys = Object.keys(cache);
+      if (keys.length > AI_CACHE_MAX_ENTRIES) {
+        keys.sort((a, b) => (cache[a].ts || 0) - (cache[b].ts || 0));
+        delete cache[keys[0]];
+      }
+      localStorage.setItem(AI_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) { /* ignore */ }
+  }
+
+  function getAiCacheEntry(normalizedText) {
+    const cache = getAiCache();
+    return cache[normalizedText] || null;
+  }
+
   window.processAIInput = async function () {
     const input = document.getElementById('aiInput');
     const text = input.value.trim();
@@ -1684,6 +1844,16 @@
     if (/^\d{8,14}$/.test(digitsOnly)) {
       input.value = '';
       await lookupBarcode(digitsOnly);
+      return;
+    }
+
+    // Кеш: якщо точно такий самий запис уже додавали раніше — не витрачаємо ліміт ШІ повторно
+    const normalized = text.toLowerCase().trim();
+    const cached = getAiCacheEntry(normalized);
+    if (cached && cached.items && cached.items.length) {
+      input.value = '';
+      cached.items.forEach(it => addCustomFood(it.name, it.kcal, it.protein, it.fat, it.carbs, it.portion, it.fiber, it.sugar));
+      setAIStatus(`⚡ Додано з кешу (без витрати ліміту ШІ): «${cached.items.map(i => i.name).join(', ')}».`, 'ok');
       return;
     }
 
@@ -1704,6 +1874,9 @@
           : `Сервер ШІ перевантажений, пробую ще раз (${attempt}/${max - 1})...`, 'warn');
       });
       handleAIResult(result, text);
+      if (result.action === 'add' && Array.isArray(result.items) && result.items.length) {
+        setAiCacheEntry(normalized, result.items);
+      }
     } catch (err) {
       setAIStatus(friendlyAiError(err), 'warn');
     } finally {
