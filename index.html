@@ -275,10 +275,16 @@
 
   <!-- ОВЕРЛЕЙ КАМЕРИ ДЛЯ СКАНУВАННЯ ШТРИХКОДІВ -->
   <div id="barcodeScanOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:999; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
-    <video id="barcodeVideo" playsinline muted style="width:100%; max-width:420px; border-radius:12px; background:#111;"></video>
-    <div id="barcodeScanStatus" style="color:#fff; margin-top:14px; font-size:13px; text-align:center;">📷 Наведи камеру на штрихкод...</div>
+    <div style="position:relative; width:100%; max-width:420px;">
+      <video id="barcodeVideo" playsinline muted autoplay style="width:100%; border-radius:12px; background:#111; display:block;"></video>
+      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+        <div style="width:78%; height:34%; border:3px solid var(--accent-gold); border-radius:12px; box-shadow:0 0 0 999px rgba(0,0,0,0.35);"></div>
+      </div>
+    </div>
+    <div id="barcodeScanStatus" style="color:#fff; margin-top:14px; font-size:13px; text-align:center;">📷 Тримай штрихкод у рамці, на відстані ~10-15 см</div>
     <div style="display:flex; gap:10px; margin-top:16px;">
       <button style="padding:10px 16px; background:#333; color:#fff; border:none; border-radius:8px; font-size:13px;" onclick="closeBarcodeScanner()">Скасувати</button>
+      <button id="torchToggleBtn" style="padding:10px 16px; background:#333; color:#fff; border:none; border-radius:8px; font-size:13px; display:none;" onclick="toggleTorch()">💡 Ліхтарик</button>
       <button class="btn-gold" style="padding:10px 16px; border:none; border-radius:8px; font-size:13px;" onclick="manualBarcodeFallback()">Ввести вручну</button>
     </div>
   </div>
@@ -352,16 +358,17 @@
     </div>
 
     <!-- 2. АДАПТИВНИЙ КОРЕКТОР TDEE -->
-    <div class="menu-item-btn" onclick="toggleSubContent('adaptiveSub')">
+    <div class="menu-item-btn" onclick="toggleSubContent('adaptiveSub'); autofillAdaptiveWeights();">
       <span>🔄 Адаптивний Коректор TDEE</span> <span>▼</span>
     </div>
     <div class="menu-item-content" id="adaptiveSub">
-      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Введи вагу за минулий тиждень:</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Підтягнуто з твоєї реальної історії ваги (можна виправити вручну):</div>
       <div class="form-grid">
-        <div class="input-group"><label>Вага 7 днів тому</label><input type="number" id="pastWeight" value="75.4"></div>
-        <div class="input-group"><label>Вага зараз</label><input type="number" id="nowWeight" value="75.0"></div>
+        <div class="input-group"><label>Вага ~7 днів тому</label><input type="number" id="pastWeight" value=""></div>
+        <div class="input-group"><label>Вага зараз</label><input type="number" id="nowWeight" value=""></div>
       </div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="runAdaptiveCorrection()">Запустити адаптацію цілі</button>
+      <div id="adaptiveResultBox" style="font-size:12px; color:#ddd; background:#101114; border-radius:8px; padding:8px; margin-top:8px; display:none; line-height:1.4;"></div>
     </div>
 
     <!-- 2.5 ПРОГРЕС, ЗАМІРИ ТІЛА & ШІ-АНАЛІТИКА (об'єднано) -->
@@ -1081,16 +1088,61 @@
       if (typeof calculateBodyComposition === 'function') calculateBodyComposition();
     }
 
+    function autofillAdaptiveWeights() {
+      const store = getHistoryStore();
+      const todayKey = dateKey(new Date());
+
+      // "Зараз" — останнє збережене значення ваги (сьогодні, або найсвіжіше з попередніх днів)
+      let nowVal = null;
+      for (let i = 0; i <= 30; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const log = store[dateKey(d)];
+        if (log && typeof log.weight === 'number') { nowVal = log.weight; break; }
+      }
+      // "7 днів тому" — значення максимально близьке до рівно 7 днів назад
+      let pastVal = null;
+      for (let i = 7; i <= 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const log = store[dateKey(d)];
+        if (log && typeof log.weight === 'number') { pastVal = log.weight; break; }
+      }
+
+      const nowInput = document.getElementById('nowWeight');
+      const pastInput = document.getElementById('pastWeight');
+      if (nowVal !== null && nowInput && !nowInput.value) nowInput.value = nowVal;
+      if (pastVal !== null && pastInput && !pastInput.value) pastInput.value = pastVal;
+    }
+
     function runAdaptiveCorrection() {
       const past = parseFloat(document.getElementById('pastWeight').value);
       const now = parseFloat(document.getElementById('nowWeight').value);
-      const diff = now - past;
+      const box = document.getElementById('adaptiveResultBox');
+      box.style.display = 'block';
 
-      if (diff > 0) {
-        userGoalKcal -= 100;
-        alert('🔄 Адаптивний коректор: вага зросла. Мета зменшена на 100 ккал для стабілізації.');
+      if (isNaN(past) || isNaN(now)) {
+        box.innerHTML = 'Введи обидва значення ваги (або збережи вагу в профілі кілька разів, щоб історія накопичилась).';
+        return;
+      }
+
+      const maintenance = parseFloat((document.getElementById('calcMaint').innerText || '').replace(/\D/g, '')) || Math.round(userGoalKcal / 0.85);
+      const expectedLossKg = (maintenance - userGoalKcal) * 7 / 7700;
+      const actualLossKg = past - now;
+      const shortfallKg = expectedLossKg - actualLossKg;
+      let dailyAdjustment = Math.round(shortfallKg * 7700 / 7);
+      dailyAdjustment = Math.max(-150, Math.min(150, dailyAdjustment));
+
+      const MIN_SAFE_KCAL = 1200;
+      let newGoal = userGoalKcal - dailyAdjustment;
+      newGoal = Math.max(MIN_SAFE_KCAL, newGoal);
+
+      if (Math.abs(dailyAdjustment) < 40) {
+        box.innerHTML = `✅ Динаміка відповідає очікуванням (очікували ${expectedLossKg.toFixed(1)}кг, вийшло ${actualLossKg.toFixed(1)}кг). Ціль лишається ${userGoalKcal} ккал.`;
+      } else if (dailyAdjustment > 0) {
+        userGoalKcal = newGoal;
+        box.innerHTML = `🔄 Схуднення повільніше за очікуване (${actualLossKg.toFixed(1)}кг замість ${expectedLossKg.toFixed(1)}кг). Ціль скориговано: ${newGoal} ккал/день (було ${Math.round(newGoal + dailyAdjustment)}).`;
       } else {
-        alert('🔄 Адаптивний коректор: динаміка супер! Твій організм адаптувався до цілі.');
+        userGoalKcal = newGoal;
+        box.innerHTML = `🔄 Схуднення швидше за очікуване (${actualLossKg.toFixed(1)}кг замість ${expectedLossKg.toFixed(1)}кг). Можна трохи додати їжі: нова ціль ${newGoal} ккал/день.`;
       }
       updateDisplayValues();
     }
@@ -1432,13 +1484,16 @@
     setAIStatus('Страву прибрано з прийому їжі та перераховано добовий підсумок.', 'ok');
   };
 
-  window.addCustomFood = function (name, kcal, p, f, c, portion, fiber, sugar) {
-    const currentMeal = mealsList[selectedMealIndex];
-    const targetContainer = document.getElementById(currentMeal.id);
+  window.addCustomFood = function (name, kcal, p, f, c, portion, fiber, sugar, targetMealId) {
+    const meal = (targetMealId && mealsList.some(m => m.id === targetMealId))
+      ? mealsList.find(m => m.id === targetMealId)
+      : mealsList[selectedMealIndex];
+    const targetContainer = document.getElementById(meal.id);
     if (!targetContainer) return;
     targetContainer.insertAdjacentHTML('beforeend', foodItemHTML(name, kcal, p, f, c, portion, fiber, sugar).replace('class="food-item"', 'class="food-item ai-added"'));
     targetContainer.classList.add('open');
     updateTotalsFromDOM();
+    return meal;
   };
 
   function findProduct(query) {
@@ -1756,16 +1811,19 @@
     const currentMeal = mealsList[selectedMealIndex];
     const existingItems = Array.from(document.querySelectorAll('.food-title'))
       .map(el => el.textContent.trim()).filter(Boolean);
+    const mealIdsList = mealsList.map(m => `"${m.id}" (${m.name})`).join(', ');
 
-    const systemPrompt = `Ти — ШІ-помічник застосунку "Розумний Щоденник" для трекінгу харчування. Користувач пише українською: описує з'їдену страву, просить прибрати запис, або ставить загальне питання.
-Обраний зараз прийом їжі: "${currentMeal.name}".
+    const systemPrompt = `Ти — ШІ-помічник застосунку "Розумний Щоденник" для трекінгу харчування. Користувач пише українською: описує з'їдену страву (можливо, за минулий прийом їжі — наприклад "на сніданок було яйце", хоча зараз вечір), просить прибрати запис, або ставить загальне питання.
+Прийоми їжі та їх id: ${mealIdsList}.
+Якщо зараз нічого не обрано користувачем явно — записи йдуть до поточного за часом: "${currentMeal.name}" (id: "${currentMeal.id}").
 Поточні страви в щоденнику: ${existingItems.length ? existingItems.join(', ') : 'порожньо'}.
 
 Відповідай ЛИШЕ одним JSON-об'єктом, без пояснень, без markdown-огорож \`\`\`, без жодного тексту поза JSON. Формат:
-{"action":"add|remove|answer","items":[{"name":"","kcal":0,"protein":0,"fat":0,"carbs":0,"fiber":0,"sugar":0,"portion":""}],"query":"","message":""}
+{"action":"add|remove|answer","meal":null,"items":[{"name":"","kcal":0,"protein":0,"fat":0,"carbs":0,"fiber":0,"sugar":0,"portion":""}],"query":"","message":""}
 
 Правила:
-- "add": користувач описав з'їдену страву чи продукт. У "items" — одна або кілька страв із реалістичною оцінкою калорій, білків, жирів, вуглеводів, клітковини та цукру на вказану (або типову) порцію. "message" — коротке дружнє підтвердження (до 15 слів).
+- "meal": якщо користувач ЯВНО згадує конкретний прийом їжі (сніданок/обід/перекус/вечеря, у будь-якому відмінку чи формі) — постав відповідний id із переліку вище. Якщо не згадує явно — постав null (тоді використається поточний за часом).
+- "add": користувач описав з'їдену страву чи продукт. У "items" — одна або кілька страв із реалістичною оцінкою калорій, білків, жирів, вуглеводів, клітковини та цукру на вказану (або типову) порцію. "message" — коротке дружнє підтвердження (до 15 слів), можна згадати прийом їжі, якщо він був явно вказаний.
 - "remove": користувач просить прибрати/видалити/забрати страву. "query" — ключове слово з назви страви для пошуку серед поточних. "message" — коротке підтвердження.
 - "answer": будь-яке інше повідомлення (питання, порада, мотивація). "message" — відповідь до 40 слів, без markdown.
 Завжди заповнюй "message" українською.`;
@@ -1774,6 +1832,9 @@
   }
 
   function handleAIResult(result, originalText) {
+    const targetMealId = (result.meal && mealsList.some(m => m.id === result.meal)) ? result.meal : null;
+    const targetMealName = targetMealId ? mealsList.find(m => m.id === targetMealId).name : null;
+
     if (result.action === 'add' && Array.isArray(result.items) && result.items.length) {
       result.items.forEach(it => {
         addCustomFood(
@@ -1784,21 +1845,29 @@
           Number(it.carbs) || 0,
           it.portion || 'порція',
           Number(it.fiber) || 0,
-          Number(it.sugar) || 0
+          Number(it.sugar) || 0,
+          targetMealId
         );
       });
-      setAIStatus(result.message || 'Додано до щоденника.', 'ok');
+      const mealSuffix = targetMealName ? ` (${targetMealName})` : '';
+      setAIStatus((result.message || 'Додано до щоденника.') + mealSuffix, 'ok');
     } else if (result.action === 'remove') {
       const query = (result.query || originalText).toLowerCase().trim();
       let removed = 0;
-      document.querySelectorAll('.food-item').forEach(item => {
-        const title = item.querySelector('.food-title');
-        if (title && (title.textContent.toLowerCase().includes(query) || query.includes(title.textContent.toLowerCase()))) {
-          item.remove(); removed++;
-        }
+      const scope = targetMealId
+        ? [document.getElementById(targetMealId)].filter(Boolean)
+        : Array.from(document.querySelectorAll('.meal-body'));
+      scope.forEach(body => {
+        body.querySelectorAll('.food-item').forEach(item => {
+          const title = item.querySelector('.food-title');
+          if (title && (title.textContent.toLowerCase().includes(query) || query.includes(title.textContent.toLowerCase()))) {
+            item.remove(); removed++;
+          }
+        });
       });
       updateTotalsFromDOM();
-      setAIStatus(removed ? (result.message || 'Прибрано.') : `Не знайшов «${result.query || originalText}» у щоденнику.`, removed ? 'ok' : 'warn');
+      const mealSuffix = targetMealName ? ` (${targetMealName})` : '';
+      setAIStatus(removed ? (result.message || 'Прибрано.') + mealSuffix : `Не знайшов «${result.query || originalText}»${mealSuffix} у щоденнику.`, removed ? 'ok' : 'warn');
     } else {
       setAIStatus(result.message || 'Готово.', 'ok');
     }
@@ -1815,10 +1884,10 @@
     } catch (e) { return {}; }
   }
 
-  function setAiCacheEntry(normalizedText, resultItems) {
+  function setAiCacheEntry(normalizedText, resultItems, meal) {
     try {
       const cache = getAiCache();
-      cache[normalizedText] = { items: resultItems, ts: Date.now() };
+      cache[normalizedText] = { items: resultItems, meal: meal || null, ts: Date.now() };
       const keys = Object.keys(cache);
       if (keys.length > AI_CACHE_MAX_ENTRIES) {
         keys.sort((a, b) => (cache[a].ts || 0) - (cache[b].ts || 0));
@@ -1852,8 +1921,10 @@
     const cached = getAiCacheEntry(normalized);
     if (cached && cached.items && cached.items.length) {
       input.value = '';
-      cached.items.forEach(it => addCustomFood(it.name, it.kcal, it.protein, it.fat, it.carbs, it.portion, it.fiber, it.sugar));
-      setAIStatus(`⚡ Додано з кешу (без витрати ліміту ШІ): «${cached.items.map(i => i.name).join(', ')}».`, 'ok');
+      const cachedMealId = (cached.meal && mealsList.some(m => m.id === cached.meal)) ? cached.meal : null;
+      cached.items.forEach(it => addCustomFood(it.name, it.kcal, it.protein, it.fat, it.carbs, it.portion, it.fiber, it.sugar, cachedMealId));
+      const mealSuffix = cachedMealId ? ` (${mealsList.find(m => m.id === cachedMealId).name})` : '';
+      setAIStatus(`⚡ Додано з кешу (без витрати ліміту ШІ): «${cached.items.map(i => i.name).join(', ')}»${mealSuffix}.`, 'ok');
       return;
     }
 
@@ -1875,7 +1946,7 @@
       });
       handleAIResult(result, text);
       if (result.action === 'add' && Array.isArray(result.items) && result.items.length) {
-        setAiCacheEntry(normalized, result.items);
+        setAiCacheEntry(normalized, result.items, result.meal || null);
       }
     } catch (err) {
       setAIStatus(friendlyAiError(err), 'warn');
@@ -1951,23 +2022,63 @@
     await manualBarcodeEntry();
   };
 
+  let torchOn = false;
+
+  window.toggleTorch = async function () {
+    if (!barcodeStream) return;
+    const track = barcodeStream.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      torchOn = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+    } catch (e) {
+      torchOn = false;
+      setAIStatus('Ліхтарик недоступний на цій камері.', 'warn');
+    }
+  };
+
   async function openBarcodeCameraScanner() {
     const overlay = document.getElementById('barcodeScanOverlay');
     const video = document.getElementById('barcodeVideo');
     const statusEl = document.getElementById('barcodeScanStatus');
+    const torchBtn = document.getElementById('torchToggleBtn');
     if (!overlay || !video) { await manualBarcodeEntry(); return; }
 
     overlay.style.display = 'flex';
-    statusEl.textContent = '📷 Наведи камеру на штрихкод...';
+    statusEl.textContent = '📷 Тримай штрихкод у рамці, на відстані ~10-15 см';
+    torchOn = false;
+    if (torchBtn) torchBtn.style.display = 'none';
 
     try {
-      barcodeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      // Просимо вищу роздільність і безперервний автофокус — це найбільше впливає на якість розпізнавання
+      barcodeStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: 'continuous'
+        }
+      });
       video.srcObject = barcodeStream;
       await video.play();
 
+      // Показати кнопку ліхтарика, якщо камера це підтримує
+      const track = barcodeStream.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        try {
+          const caps = track.getCapabilities();
+          if (caps && caps.torch && torchBtn) torchBtn.style.display = 'inline-block';
+        } catch (e) { /* деякі браузери не підтримують getCapabilities */ }
+      }
+
       const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] });
+      let detecting = false;
+      let missCount = 0;
 
       barcodeDetectLoop = setInterval(async () => {
+        if (detecting) return; // не запускаємо новий кадр, поки попередній ще обробляється
+        if (video.readyState < 2) return; // відео ще не готове — пропускаємо цикл
+        detecting = true;
         try {
           const codes = await detector.detect(video);
           if (codes.length > 0) {
@@ -1979,9 +2090,15 @@
             } else {
               setAIStatus(`Розпізнано код «${raw}», але це не схоже на штрихкод продукту.`, 'warn');
             }
+          } else {
+            missCount++;
+            if (missCount === 20) { // ~5 секунд без результату
+              statusEl.textContent = '📷 Не бачу код чітко — спробуй ближче/далі або увімкни ліхтарик у темряві';
+            }
           }
         } catch (e) { /* тимчасова помилка детекції — пробуємо далі */ }
-      }, 400);
+        detecting = false;
+      }, 250);
     } catch (err) {
       statusEl.textContent = `Не вдалося увімкнути камеру: ${err.message || 'доступ заборонено'}. Спробуй ввести код вручну.`;
     }
