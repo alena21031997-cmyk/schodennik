@@ -1,29 +1,28 @@
-const CACHE_NAME = 'schodennik-cache-v1';
+const CACHE_NAME = 'schodennik-cache-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => {})
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-    ))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
+// Спершу мережа (завжди свіжа версія), кеш — лише якщо немає інтернету
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-  // ШІ (Gemini) і база товарів (Open Food Facts) завжди йдуть напряму в мережу — їх не кешуємо
-  if (url.includes('generativelanguage.googleapis.com') || url.includes('openfoodfacts.org')) {
-    return;
-  }
+  const req = event.request;
+  const url = req.url;
+  if (req.method !== 'GET' || url.includes('generativelanguage.googleapis.com') || url.includes('openfoodfacts.org')) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(req).then((res) => {
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+      return res;
+    }).catch(() => caches.match(req))
   );
 });
