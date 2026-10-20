@@ -332,7 +332,7 @@
       <div class="form-grid">
         <div class="input-group">
           <label>Вік (років)</label>
-          <input type="number" id="userAge" value="26"></div>
+          <input type="number" id="userAge" value="" placeholder="роки"></div>
         <div class="input-group">
           <label>Стать</label>
           <select id="userGender">
@@ -342,15 +342,15 @@
         </div>
         <div class="input-group">
           <label>Зріст (см)</label>
-          <input type="number" id="userHeight" value="178">
+          <input type="number" id="userHeight" value="" placeholder="см">
         </div>
         <div class="input-group">
           <label>Поточна вага (кг)</label>
-          <input type="number" id="userWeight" value="75">
+          <input type="number" id="userWeight" value="" placeholder="кг">
         </div>
         <div class="input-group">
           <label>Цільова вага (кг)</label>
-          <input type="number" id="targetWeight" value="70">
+          <input type="number" id="targetWeight" value="" placeholder="кг">
         </div>
       </div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="saveProfileButton()">💾 Зберегти дані</button>
@@ -423,6 +423,10 @@
       <div class="calc-card" style="border-left-color: var(--c-color);">
         <div><div style="font-size:12px; color:var(--c-color);">Схуднення (-15%)</div></div>
         <div class="calc-val" id="calcLoss">1870 ккал</div>
+      </div>
+      <div class="calc-card" style="border-left-color: var(--accent-gold);">
+        <div><div style="font-size:12px; color:var(--accent-gold);">Ціль на день (на головному екрані)</div><div id="calcFinalNote" style="font-size:10px; color:var(--text-sub);"></div></div>
+        <div class="calc-val" id="calcFinal">1870 ккал</div>
       </div>
       <div class="calc-card" style="border-left-color: var(--accent-gold);">
         <div><div style="font-size:12px; color:var(--text-sub);">Індекс маси тіла (ІМТ)</div></div>
@@ -501,7 +505,7 @@
       </div>
       <div id="apiKeysContainer"></div>
       <div id="extraApiKeysContainer"></div>
-      <button class="btn-small" style="width:100%; padding:7px; margin-bottom:8px; background:#2a2b30; color:#ddd;" onclick="addExtraKeySlot()">➕ Додати ще ключ (до 10)</button>
+      <button class="btn-small" style="width:100%; padding:7px; margin-bottom:8px; background:#2a2b30; color:#ddd;" onclick="addExtraKeySlot()">➕ Додати ще ключ (до 30)</button>
       <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="saveApiKey()">💾 Зберегти ключі</button>
       <div id="apiKeyStatus" style="font-size:10px; color:var(--text-sub); margin-top:6px;"></div>
     </div>
@@ -509,7 +513,24 @@
   </div>
 
   <script>
-    let userGoalKcal = 1870;
+    let userGoalKcal = 1870;      // ПІДСУМКОВА ціль на день = база (TDEE) + коригування + перенесений банк
+    let baseGoalKcal = 1870;      // з розрахунку TDEE (схуднення −15%)
+    let adaptiveAdjustment = 0;   // від адаптивного коректора (зберігається)
+    let bankBonus = 0;            // калорії, перенесені з банку
+    try { adaptiveAdjustment = parseInt(localStorage.getItem('adaptiveAdjustment')) || 0; } catch (e) {}
+    function applyGoal() {
+      try { bankBonus = bankTransferFor(selectedCalendarDate); } catch (e) { bankBonus = 0; }
+      userGoalKcal = Math.max(1200, baseGoalKcal + adaptiveAdjustment) + bankBonus;
+      const fin = document.getElementById('calcFinal');
+      if (fin) fin.innerText = userGoalKcal + ' ккал';
+      const note = document.getElementById('calcFinalNote');
+      if (note) {
+        const parts = [`розрахунок ${baseGoalKcal}`];
+        if (adaptiveAdjustment) parts.push(`коректор ${adaptiveAdjustment > 0 ? '+' : ''}${adaptiveAdjustment}`);
+        if (bankBonus) parts.push(`банк +${bankBonus}`);
+        note.innerText = parts.join(' · ');
+      }
+    }
     let currentEatenKcal = 0;
     let currentWater = 0;
     let calorieBank = 0;
@@ -602,6 +623,47 @@
       try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
     }
 
+    // ===== Гнучкий банк калорій =====
+    // Недоїдені калорії днів за останні 7 днів (лише дні, де є записи їжі) копичаться в банку.
+    // Перенесене на день віднімається з банку.
+    const BANK_WINDOW_DAYS = 7;
+    function getBankTransfers() {
+      try { return JSON.parse(localStorage.getItem('bankTransfers') || '{}'); } catch (e) { return {}; }
+    }
+    function bankTransferFor(date) { return Number(getBankTransfers()[dateKey(date)]) || 0; }
+    function dayEatenKcal(log) {
+      let sum = 0;
+      if (log && log.meals) Object.values(log.meals).forEach(items => (items || []).forEach(it => { sum += Number(it.kcal) || 0; }));
+      return sum;
+    }
+    function computeBankAvailable() {
+      const store = getHistoryStore();
+      const transfers = getBankTransfers();
+      const fallbackGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      let surplus = 0, spent = 0;
+      for (let i = 1; i <= BANK_WINDOW_DAYS; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = dateKey(d);
+        const log = store[key];
+        const eaten = dayEatenKcal(log);
+        if (eaten > 0) {
+          const goal = (log && Number(log.goal)) || fallbackGoal;
+          surplus += Math.max(0, Math.round(goal - eaten));
+        }
+      }
+      for (let i = 0; i <= BANK_WINDOW_DAYS; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        spent += Number(transfers[dateKey(d)]) || 0;
+      }
+      return Math.max(0, surplus - spent);
+    }
+    function refreshBank() {
+      calorieBank = computeBankAvailable();
+      const t = '+' + calorieBank + ' ккал';
+      const a = document.getElementById('bankDisplay'); if (a) a.innerText = t;
+      const b = document.getElementById('menuBankVal'); if (b) b.innerText = t;
+    }
+
     function foodItemHTML(name, kcal, p, f, c, portion, fiber, sugar) {
       fiber = fiber || 0;
       sugar = sugar || 0;
@@ -646,7 +708,11 @@
         meals[m.id] = items;
       });
       const existing = getHistoryStore()[dateKey(selectedCalendarDate)] || {};
-      return { meals, water: currentWater, weight: (typeof existing.weight === 'number') ? existing.weight : null };
+      const keyNow = dateKey(selectedCalendarDate);
+      const isPast = keyNow < dateKey(new Date());
+      const goalNow = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      const goal = (isPast && existing.goal) ? existing.goal : goalNow;
+      return Object.assign({}, existing, { meals, water: currentWater, weight: (typeof existing.weight === 'number') ? existing.weight : null, goal });
     }
 
     function saveCurrentDayLog() {
@@ -656,6 +722,7 @@
     }
 
     function renderDayLog(log) {
+      applyGoal();
       mealsList.forEach(m => {
         const container = document.getElementById(m.id);
         if (!container) return;
@@ -1058,10 +1125,20 @@
     }
 
     function recalculateNorms() {
-      const age = parseFloat(document.getElementById('userAge').value) || 25;
+      const age = parseFloat(document.getElementById('userAge').value);
       const gender = document.getElementById('userGender').value || 'female';
-      const height = parseFloat(document.getElementById('userHeight').value) || 175;
-      const weight = parseFloat(document.getElementById('userWeight').value) || 75;
+      const height = parseFloat(document.getElementById('userHeight').value);
+      const weight = parseFloat(document.getElementById('userWeight').value);
+      if (isNaN(age) || isNaN(height) || isNaN(weight) || age <= 0 || height <= 0 || weight <= 0) {
+        // профіль ще не заповнений — не вигадуємо цифр
+        document.getElementById('calcMaint').innerText = '—';
+        document.getElementById('calcLoss').innerText = '—';
+        const bmiEl0 = document.getElementById('calcBmi');
+        if (bmiEl0) bmiEl0.innerText = 'Заповни профіль';
+        applyGoal();
+        updateDisplayValues();
+        return;
+      }
 
       const bmr = gender === 'male'
         ? (10 * weight) + (6.25 * height) - (5 * age) + 5
@@ -1071,7 +1148,8 @@
 
       document.getElementById('calcMaint').innerText = tdee + ' ккал';
       document.getElementById('calcLoss').innerText = loss + ' ккал';
-      userGoalKcal = loss;
+      baseGoalKcal = loss;
+      applyGoal();
 
       const heightM = height / 100;
       const bmi = heightM > 0 ? weight / (heightM * heightM) : 0;
@@ -1085,6 +1163,7 @@
 
       saveProfileData();
       updateDisplayValues();
+      if (typeof window.updateTotalsFromDOM === 'function') window.updateTotalsFromDOM();
       if (typeof calculateBodyComposition === 'function') calculateBodyComposition();
     }
 
@@ -1169,36 +1248,53 @@
       }
 
       const maintenance = parseFloat((document.getElementById('calcMaint').innerText || '').replace(/\D/g, '')) || Math.round(userGoalKcal / 0.85);
-      const expectedLossKg = (maintenance - userGoalKcal) * 7 / 7700;
+      const plannedGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      const expectedLossKg = (maintenance - plannedGoal) * 7 / 7700;
       const actualLossKg = past - now;
       const shortfallKg = expectedLossKg - actualLossKg;
       let dailyAdjustment = Math.round(shortfallKg * 7700 / 7);
       dailyAdjustment = Math.max(-150, Math.min(150, dailyAdjustment));
 
       const MIN_SAFE_KCAL = 1200;
-      let newGoal = userGoalKcal - dailyAdjustment;
-      newGoal = Math.max(MIN_SAFE_KCAL, newGoal);
+      const MAX_TOTAL_ADJ = 300; // коректор не відходить від розрахунку більше ніж на 300 ккал
+      let newAdj = adaptiveAdjustment - dailyAdjustment;
+      newAdj = Math.max(-MAX_TOTAL_ADJ, Math.min(MAX_TOTAL_ADJ, newAdj));
+      if (baseGoalKcal + newAdj < MIN_SAFE_KCAL) newAdj = MIN_SAFE_KCAL - baseGoalKcal;
+      const oldGoal = userGoalKcal;
 
-      if (Math.abs(dailyAdjustment) < 40) {
-        box.innerHTML = `✅ Динаміка відповідає очікуванням (очікували ${expectedLossKg.toFixed(1)}кг, вийшло ${actualLossKg.toFixed(1)}кг). Ціль лишається ${userGoalKcal} ккал.`;
-      } else if (dailyAdjustment > 0) {
-        userGoalKcal = newGoal;
-        box.innerHTML = `🔄 Схуднення повільніше за очікуване (${actualLossKg.toFixed(1)}кг замість ${expectedLossKg.toFixed(1)}кг). Ціль скориговано: ${newGoal} ккал/день (було ${Math.round(newGoal + dailyAdjustment)}).`;
+      if (Math.abs(dailyAdjustment) < 40 || newAdj === adaptiveAdjustment) {
+        box.innerHTML = `✅ Динаміка відповідає очікуванням (очікували ${expectedLossKg.toFixed(1)} кг, вийшло ${actualLossKg.toFixed(1)} кг). Ціль лишається ${userGoalKcal} ккал.`;
       } else {
-        userGoalKcal = newGoal;
-        box.innerHTML = `🔄 Схуднення швидше за очікуване (${actualLossKg.toFixed(1)}кг замість ${expectedLossKg.toFixed(1)}кг). Можна трохи додати їжі: нова ціль ${newGoal} ккал/день.`;
+        adaptiveAdjustment = newAdj;
+        try { localStorage.setItem('adaptiveAdjustment', String(adaptiveAdjustment)); } catch (e) {}
+        applyGoal();
+        const slower = dailyAdjustment > 0;
+        box.innerHTML = `🔄 Схуднення ${slower ? 'повільніше' : 'швидше'} за очікуване (${actualLossKg.toFixed(1)} кг замість ${expectedLossKg.toFixed(1)} кг). Ціль на день: <b>${userGoalKcal} ккал</b> (було ${oldGoal}). Вона вже змінилась на головному екрані.<br><button class="btn-small" style="margin-top:6px;" onclick="resetAdaptiveAdjustment()">Скинути коригування</button>`;
       }
       updateDisplayValues();
     }
 
-    function transferBankToDay() {
-      if (calorieBank <= 0) { alert("Банк порожній!"); return; }
-      userGoalKcal += calorieBank;
-      alert(`👥 Успішно перенесено +${calorieBank} ккал з банку на сьогодні!`);
-      calorieBank = 0;
-      document.getElementById('menuBankVal').innerText = '0 ккал';
-      document.getElementById('bankDisplay').innerText = '0 ккал';
+    function resetAdaptiveAdjustment() {
+      adaptiveAdjustment = 0;
+      try { localStorage.removeItem('adaptiveAdjustment'); } catch (e) {}
+      applyGoal();
       updateDisplayValues();
+      const box = document.getElementById('adaptiveResultBox');
+      if (box) { box.style.display = 'block'; box.innerHTML = `Коригування скинуто. Ціль на день: ${userGoalKcal} ккал.`; }
+    }
+
+    function transferBankToDay() {
+      refreshBank();
+      if (calorieBank <= 0) { alert("Банк порожній! Він наповнюється недоїденими калоріями попередніх днів (за останні 7 днів)."); return; }
+      const amount = calorieBank;
+      const key = dateKey(selectedCalendarDate);
+      const tr = getBankTransfers();
+      tr[key] = (Number(tr[key]) || 0) + amount;
+      try { localStorage.setItem('bankTransfers', JSON.stringify(tr)); } catch (e) {}
+      applyGoal();
+      refreshBank();
+      updateDisplayValues();
+      alert(`👥 Перенесено +${amount} ккал з банку на цей день.`);
     }
 
     window.generateFridgeRecipe = async function () {
@@ -1259,16 +1355,31 @@
     };
 
 
+    function updateMacroGoals() {
+      // розподіл денної цілі: білки 30%, жири 30%, вуглеводи 40%
+      const p = Math.round(userGoalKcal * 0.30 / 4), f = Math.round(userGoalKcal * 0.30 / 9), c = Math.round(userGoalKcal * 0.40 / 4);
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = '/' + v + 'г'; };
+      set('pGoal', p); set('fGoal', f); set('cGoal', c);
+    }
+
     function updateDisplayValues() {
+      updateMacroGoals();
+      refreshBank();
       const remain = Math.max(0, userGoalKcal - currentEatenKcal);
       const pct = Math.min(100, Math.round((currentEatenKcal / userGoalKcal) * 100));
 
       document.getElementById('remainKcalDisplay').innerText = remain;
       document.getElementById('progressFill').style.width = `${pct}%`;
 
-      let batteryText = `Ресурс оптимальний (${pct}%)`;
-      if (pct > 90) batteryText = 'Батарейка повна! Енергії вдосталь 🔥';
-      document.getElementById('batteryStatusText').innerText = batteryText;
+      const over = Math.round(currentEatenKcal - userGoalKcal);
+      let batteryText, batteryColor = 'var(--battery-color)';
+      if (currentEatenKcal <= 0) batteryText = 'Ще нічого не записано (0%)';
+      else if (over > 0) { batteryText = `Ліміт перевищено на ${over} ккал`; batteryColor = '#ff8a65'; }
+      else if (pct > 90) batteryText = `Майже ліміт (${pct}%)`;
+      else batteryText = `Ресурс оптимальний (${pct}%)`;
+      const batteryEl = document.getElementById('batteryStatusText');
+      batteryEl.innerText = batteryText;
+      batteryEl.style.color = batteryColor;
     }
 
     function renderProducts(items) {
@@ -1410,6 +1521,19 @@
     loadProfileData();
     loadBodyMeasurementsData();
     recalculateNorms();
+    // Будь-яка зміна параметрів профілю одразу перераховує TDEE і ціль на головному екрані
+    ['userAge', 'userGender', 'userHeight', 'userWeight', 'targetWeight'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', recalculateNorms);
+      el.addEventListener('change', () => {
+        recalculateNorms();
+        if (id === 'userWeight') {
+          const w = parseFloat(el.value);
+          if (!isNaN(w) && w >= 20 && w <= 400) logTodayWeight(w);
+        }
+      });
+    });
     calculateBodyComposition();
     renderCalendar();
     filterProducts('');
@@ -1501,7 +1625,8 @@
     if (fValEl) fValEl.textContent = Math.round(fat);
     if (cValEl) cValEl.textContent = Math.round(carbs);
 
-    const fiberGoal = 30, sugarGoal = 50;
+    // норми масштабуються з цільовою калорійністю: клітковина 14 г на 1000 ккал, цукор до 10% калорій
+    const fiberGoal = Math.round(userGoalKcal / 1000 * 14), sugarGoal = Math.round(userGoalKcal * 0.10 / 4);
     const fiberEl = document.getElementById('fiberDisplay');
     const sugarEl = document.getElementById('sugarDisplay');
     if (fiberEl) fiberEl.textContent = `${Math.round(fiber)}/${fiberGoal}г`;
