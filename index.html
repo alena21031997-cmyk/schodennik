@@ -140,6 +140,14 @@
     .eye-box { background: #101114; padding: 6px 8px; border-radius: 8px; text-align: left; font-size: 11px; }
 
     .ai-bubble { background: rgba(198, 155, 82, 0.1); border: 1px dashed var(--accent-gold); padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; font-size: 12px; color: #e0d0b0; display: flex; gap: 8px; align-items: flex-start; }
+    .ui-dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .ui-dialog { background: #18191d; border: 1px solid #2d2f36; border-radius: 16px; padding: 18px; width: 100%; max-width: 340px; color: #fff; }
+    .ui-dialog-msg { font-size: 14px; line-height: 1.45; white-space: pre-wrap; margin-bottom: 12px; }
+    .ui-dialog-input { width: 100%; background: #101114; border: 1px solid #2d2f36; border-radius: 10px; color: #fff; font-size: 16px; padding: 10px; margin-bottom: 12px; outline: none; }
+    .ui-dialog-btns { display: flex; gap: 8px; }
+    .ui-dialog-btns button { flex: 1; padding: 11px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; }
+    .ui-ok { background: var(--accent-gold); color: #000; }
+    .ui-cancel { background: #2a2b30; color: #ddd; }
   </style>
 </head>
 <body>
@@ -355,6 +363,28 @@
           <label>Цільова вага (кг)</label>
           <input type="number" id="targetWeight" value="" placeholder="кг">
         </div>
+        <div class="input-group" style="grid-column: 1 / -1;">
+          <label>Рівень активності</label>
+          <select id="userActivity">
+            <option value="1.2">Сидяча: офісна робота, без тренувань</option>
+            <option value="1.375">Легка: 1–3 тренування на тиждень</option>
+            <option value="1.55">Помірна: 3–5 тренувань на тиждень</option>
+            <option value="1.725">Висока: щоденні тренування або фізична робота</option>
+          </select>
+        </div>
+        <div class="input-group" style="grid-column: 1 / -1;">
+          <label>Темп схуднення (дефіцит калорій)</label>
+          <select id="userDeficit" onchange="document.getElementById('customGoalRow').style.display = this.value === 'custom' ? 'block' : 'none'">
+            <option value="0.10">М'який: −10% (повільніше, легше витримати)</option>
+            <option value="0.15">Стандартний: −15%</option>
+            <option value="0.20">Швидкий: −20% (важче витримати)</option>
+            <option value="custom">Власна ціль у ккал</option>
+          </select>
+        </div>
+        <div class="input-group" id="customGoalRow" style="grid-column: 1 / -1; display:none;">
+          <label>Моя ціль на день (ккал, не менше 1200)</label>
+          <input type="number" id="userCustomGoal" value="" placeholder="напр. 1900">
+        </div>
       </div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="saveProfileButton()">💾 Зберегти дані</button>
       <div id="profileSaveStatus" style="font-size:10px; color:var(--text-sub); margin-top:6px;"></div>
@@ -365,11 +395,16 @@
       <span>🔄 Адаптивний Коректор TDEE</span> <span>▼</span>
     </div>
     <div class="menu-item-content" id="adaptiveSub">
-      <div id="adaptiveSourceNote" style="font-size:11px; color:#aaa; margin-bottom:6px;">Вага підтягується автоматично з профілю та історії. Якщо змінюєш вручну — програма попросить підтвердити.</div>
-      <div class="form-grid">
-        <div class="input-group"><label>Вага ~7 днів тому, кг</label><input type="number" step="0.1" id="pastWeight" value="" onchange="onAdaptiveManualEdit('past')"></div>
-        <div class="input-group"><label>Вага зараз (з профілю), кг</label><input type="number" step="0.1" id="nowWeight" value="" onchange="onAdaptiveManualEdit('now')"></div>
+      <div id="adaptiveSourceNote" style="font-size:11px; color:#aaa; margin-bottom:6px;">Коректор порівнює СЕРЕДНЮ вагу за останні 7 днів із середньою за попередні 7. Для надійності потрібно 5–7 зважувань на тиждень. Вага з профілю записується в історію щоразу, коли ти її змінюєш.</div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <input type="number" step="0.1" id="todayWeighIn" placeholder="Вага сьогодні, кг" style="flex:1; background:#101114; border:1px solid #262830; border-radius:8px; color:#fff; padding:8px; font-size:12px;">
+        <button class="btn-small btn-gold" onclick="addTodayWeighIn()">➕ Записати</button>
       </div>
+      <div class="form-grid">
+        <div class="input-group"><label>Середня вага минулого тижня, кг</label><input type="number" step="0.1" id="pastWeight" value="" onchange="onAdaptiveManualEdit('past')"></div>
+        <div class="input-group"><label>Середня вага цього тижня, кг</label><input type="number" step="0.1" id="nowWeight" value="" onchange="onAdaptiveManualEdit('now')"></div>
+      </div>
+      <div id="adaptiveCounts" style="font-size:11px; color:var(--text-sub); margin:6px 0 8px; line-height:1.4;"></div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px;" onclick="runAdaptiveCorrection()">Запустити адаптацію цілі</button>
       <div id="adaptiveResultBox" style="font-size:12px; color:#ddd; background:#101114; border-radius:8px; padding:8px; margin-top:8px; display:none; line-height:1.4;"></div>
     </div>
@@ -403,6 +438,14 @@
     </div>
 
     <!-- 3. ГНУЧКИЙ БАНК КАЛОРІЙ -->
+    <!-- 2.7 ТИЖНЕВИЙ ПІДСУМОК -->
+    <div class="menu-item-btn" onclick="toggleSubContent('weeklySub'); renderWeeklySummary();">
+      <span>📅 Тижневий підсумок</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="weeklySub">
+      <div id="weeklySummaryBox" style="font-size:12px; line-height:1.5;"></div>
+    </div>
+
     <div class="menu-item-btn" onclick="toggleSubContent('bankSub')">
       <span>👥 Гнучкий Банк Калорій</span> <span>▼</span>
     </div>
@@ -426,7 +469,7 @@
         <div class="calc-val" id="calcMaint">2200 ккал</div>
       </div>
       <div class="calc-card" style="border-left-color: var(--c-color);">
-        <div><div style="font-size:12px; color:var(--c-color);">Схуднення (-15%)</div></div>
+        <div><div style="font-size:12px; color:var(--c-color);" id="calcLossLabel">Схуднення (−10%)</div></div>
         <div class="calc-val" id="calcLoss">1870 ккал</div>
       </div>
       <div class="calc-card" style="border-left-color: var(--accent-gold);">
@@ -504,12 +547,13 @@
       <span>❓ Довідка & Помічник по додатку</span> <span>▼</span>
     </div>
     <div class="menu-item-content" id="helpSub">
-      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Обери питання — відповідь одразу, з твоїми цифрами. Або запитай своїми словами.</div>
-      <div id="helpChips"></div>
-      <div style="display:flex; gap:6px; margin-top:8px;">
-        <input type="text" id="helpQuestion" placeholder="Напр.: чому моя ціль саме така?" style="flex:1; background:#101114; border:1px solid #262830; border-radius:8px; color:#fff; padding:8px; font-size:12px;" onkeydown="if(event.key==='Enter'){askAppHelper()}">
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">🤖 Запитай ШІ про додаток що завгодно: як щось рахується, де що знаходиться, що він уміє і чого ні. Відповідь враховує твої цифри.</div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="helpQuestion" placeholder="Напр.: чому у мене залишилось саме стільки?" style="flex:1; background:#101114; border:1px solid #262830; border-radius:8px; color:#fff; padding:8px; font-size:12px;" onkeydown="if(event.key==='Enter'){askAppHelper()}">
         <button class="btn-small btn-gold" id="helpAskBtn" onclick="askAppHelper()">Запитати</button>
       </div>
+      <div style="font-size:10px; color:#8e8e93; margin:10px 0 2px;">Швидкі відповіді без ШІ:</div>
+      <div id="helpChips"></div>
       <div id="helpAnswer" style="display:none; margin-top:10px; background:#101114; border-radius:8px; padding:10px; font-size:12px; color:#ddd;"></div>
     </div>
 
@@ -550,8 +594,34 @@
   </div>
 
   <script>
+    // ===== Власні діалоги (у додатку-обгортці вбудовані alert/confirm/prompt можуть не працювати) =====
+    function uiDialog(opts) {
+      return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.className = 'ui-dialog-overlay';
+        const box = document.createElement('div'); box.className = 'ui-dialog';
+        const msg = document.createElement('div'); msg.className = 'ui-dialog-msg'; msg.textContent = opts.message || '';
+        box.appendChild(msg);
+        let inp = null;
+        if (opts.input) { inp = document.createElement('input'); inp.className = 'ui-dialog-input'; inp.type = 'text'; inp.setAttribute('inputmode', 'decimal'); inp.value = opts.defaultValue || ''; box.appendChild(inp); }
+        const btns = document.createElement('div'); btns.className = 'ui-dialog-btns';
+        const done = v => { ov.remove(); resolve(v); };
+        if (opts.showCancel !== false) {
+          const c = document.createElement('button'); c.className = 'ui-cancel'; c.textContent = opts.cancelText || 'Скасувати';
+          c.onclick = () => done(opts.input ? null : false); btns.appendChild(c);
+        }
+        const ok = document.createElement('button'); ok.className = 'ui-ok'; ok.textContent = opts.okText || 'OK';
+        ok.onclick = () => done(opts.input ? inp.value : true); btns.appendChild(ok);
+        box.appendChild(btns); ov.appendChild(box); document.body.appendChild(ov);
+        if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') ok.click(); }); setTimeout(() => { inp.focus(); inp.select(); }, 50); }
+      });
+    }
+    function uiAlert(message) { return uiDialog({ message, showCancel: false }).then(() => {}); }
+    function uiConfirm(message) { return uiDialog({ message, okText: 'Так' }); }
+    function uiPrompt(message, defaultValue) { return uiDialog({ message, input: true, defaultValue: defaultValue == null ? '' : String(defaultValue) }); }
+
     let userGoalKcal = 1870;      // ПІДСУМКОВА ціль на день = база (TDEE) + коригування + перенесений банк
-    let baseGoalKcal = 1870;      // з розрахунку TDEE (схуднення −15%)
+    let baseGoalKcal = 1870;      // з розрахунку TDEE (з урахуванням обраного дефіциту)
     let adaptiveAdjustment = 0;   // від адаптивного коректора (зберігається)
     let bankBonus = 0;            // калорії, перенесені з банку
     try { adaptiveAdjustment = parseInt(localStorage.getItem('adaptiveAdjustment')) || 0; } catch (e) {}
@@ -583,6 +653,11 @@
 
     function dateKey(date) {
       return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    }
+    // ключ дня виду «рік-місяць(0-11)-день» не можна порівнювати як рядок (місяці без нуля): порівнюємо числом
+    function dateKeyNum(key) {
+      const p = String(key).split('-').map(Number);
+      return p.length === 3 ? p[0] * 10000 + p[1] * 100 + p[2] : NaN;
     }
 
     function getMonday(date) {
@@ -690,7 +765,7 @@
       }
       // сьогодні й майбутні дні: перенесене з банку «зарезервоване», доки день не завершиться
       const todayKey = dateKey(new Date());
-      Object.keys(transfers).forEach(key => { if (key >= todayKey) reserved += Number(transfers[key]) || 0; });
+      Object.keys(transfers).forEach(key => { if (dateKeyNum(key) >= dateKeyNum(todayKey)) reserved += Number(transfers[key]) || 0; });
       return Math.max(0, net - reserved);
     }
     // Повернути в банк невикористану частину перенесених на день калорій
@@ -698,16 +773,16 @@
       const key = dateKey(selectedCalendarDate);
       const tr = getBankTransfers();
       const T = Number(tr[key]) || 0;
-      if (!T) { alert('На цей день з банку нічого не переносилось.'); return; }
+      if (!T) { uiAlert('На цей день з банку нічого не переносилось.'); return; }
       const base = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
       const used = Math.min(T, Math.max(0, Math.round(currentEatenKcal - base)));
       const back = T - used;
-      if (back <= 0) { alert('Усі перенесені калорії вже використані.'); return; }
+      if (back <= 0) { uiAlert('Усі перенесені калорії вже використані.'); return; }
       if (used > 0) tr[key] = used; else delete tr[key];
       try { localStorage.setItem('bankTransfers', JSON.stringify(tr)); } catch (e) {}
       applyGoal();
       updateDisplayValues();
-      alert(`↩️ Повернуто в банк ${back} ккал (використано ${used}).`);
+      uiAlert(`↩️ Повернуто в банк ${back} ккал (використано ${used}).`);
     }
 
     function refreshBank() {
@@ -724,7 +799,12 @@
       }
     }
 
+    function escHtml(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+    function safeAttr(v) { return String(v == null ? '' : v).replace(/['"<>&\\`$]/g, '’'); }
     function foodItemHTML(name, kcal, p, f, c, portion, fiber, sugar) {
+      name = escHtml(name); portion = escHtml(portion);
       fiber = fiber || 0;
       sugar = sugar || 0;
       return `
@@ -769,7 +849,7 @@
       });
       const existing = getHistoryStore()[dateKey(selectedCalendarDate)] || {};
       const keyNow = dateKey(selectedCalendarDate);
-      const isPast = keyNow < dateKey(new Date());
+      const isPast = dateKeyNum(keyNow) < dateKeyNum(dateKey(new Date()));
       const goalNow = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
       const goal = (isPast && existing.goal) ? existing.goal : goalNow;
       return Object.assign({}, existing, { meals, water: currentWater, weight: (typeof existing.weight === 'number') ? existing.weight : null, goal });
@@ -1157,7 +1237,10 @@
         gender: document.getElementById('userGender').value,
         height: document.getElementById('userHeight').value,
         weight: document.getElementById('userWeight').value,
-        targetWeight: document.getElementById('targetWeight').value
+        targetWeight: document.getElementById('targetWeight').value,
+        activity: document.getElementById('userActivity').value,
+        deficit: document.getElementById('userDeficit').value,
+        customGoal: document.getElementById('userCustomGoal').value
       };
       try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
     }
@@ -1172,6 +1255,10 @@
         if (data.height) document.getElementById('userHeight').value = data.height;
         if (data.weight) document.getElementById('userWeight').value = data.weight;
         if (data.targetWeight) document.getElementById('targetWeight').value = data.targetWeight;
+        if (data.activity) document.getElementById('userActivity').value = data.activity;
+        if (data.deficit) document.getElementById('userDeficit').value = data.deficit;
+        if (data.customGoal) document.getElementById('userCustomGoal').value = data.customGoal;
+        document.getElementById('customGoalRow').style.display = document.getElementById('userDeficit').value === 'custom' ? 'block' : 'none';
       } catch (e) { /* ignore */ }
     }
 
@@ -1202,8 +1289,21 @@
       const bmr = gender === 'male'
         ? (10 * weight) + (6.25 * height) - (5 * age) + 5
         : (10 * weight) + (6.25 * height) - (5 * age) - 161;
-      const tdee = Math.round(bmr * 1.375);
-      const loss = Math.round(tdee * 0.85);
+      const activityFactor = parseFloat(document.getElementById('userActivity').value) || 1.2;
+      const tdee = Math.round(bmr * activityFactor);
+      const deficitVal = document.getElementById('userDeficit').value;
+      let loss, lossLabel;
+      if (deficitVal === 'custom') {
+        const custom = parseFloat(document.getElementById('userCustomGoal').value);
+        loss = Math.max(1200, Math.round(custom > 0 ? custom : tdee * 0.90));
+        lossLabel = 'Моя ціль (власна)';
+      } else {
+        const d = parseFloat(deficitVal) || 0.10;
+        loss = Math.round(tdee * (1 - d));
+        lossLabel = `Схуднення (−${Math.round(d * 100)}%)`;
+      }
+      const lossLabelEl = document.getElementById('calcLossLabel');
+      if (lossLabelEl) lossLabelEl.textContent = lossLabel;
 
       document.getElementById('calcMaint').innerText = tdee + ' ккал';
       document.getElementById('calcLoss').innerText = loss + ' ккал';
@@ -1227,87 +1327,145 @@
       if (typeof calculateBodyComposition === 'function') calculateBodyComposition();
     }
 
-    function findPastWeight() {
+    // ===== Тижневий підсумок (останні 7 завершених днів) =====
+    function renderWeeklySummary() {
+      const box = document.getElementById('weeklySummaryBox');
+      if (!box) return;
       const store = getHistoryStore();
-      // найближче збережене значення до 7 днів тому (7..14 днів назад)
-      for (let i = 7; i <= 14; i++) {
+      const fallbackGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      const days = [];
+      for (let i = 1; i <= 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
         const log = store[dateKey(d)];
-        if (log && typeof log.weight === 'number') return { val: log.weight, daysAgo: i };
+        const eaten = dayEatenKcal(log);
+        let P = 0, F = 0, C = 0;
+        if (log && log.meals) Object.values(log.meals).forEach(items => (items || []).forEach(it => { P += Number(it.p) || 0; F += Number(it.f) || 0; C += Number(it.c) || 0; }));
+        days.push({ d, eaten, goal: (log && Number(log.goal)) || fallbackGoal, water: log ? Number(log.water) || 0 : 0, P, F, C, logged: eaten > 0 });
       }
-      return null;
+      const logged = days.filter(x => x.logged);
+      if (!logged.length) {
+        box.innerHTML = '<span style="color:var(--text-sub);">За останні 7 днів ще немає записів їжі. Підсумок з’явиться, коли вестимеш щоденник кілька днів.</span>';
+        return;
+      }
+      const avg = (arr, fn) => Math.round(arr.reduce((t, x) => t + fn(x), 0) / arr.length);
+      const inGoal = logged.filter(x => x.eaten <= x.goal).length;
+      const cur = weekWeights(0), prev = weekWeights(7);
+      let weightLine = `Зважувань за тиждень: ${cur.length}/7.`;
+      if (cur.length && prev.length) {
+        const diff = avgOf(cur) - avgOf(prev);
+        weightLine += ` Середня вага ${avgOf(cur).toFixed(1)} кг (${diff > 0 ? '+' : ''}${diff.toFixed(1)} кг до минулого тижня).`;
+      } else if (cur.length) {
+        weightLine += ` Середня вага ${avgOf(cur).toFixed(1)} кг.`;
+      }
+      const dayNames = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+      const rows = days.slice().reverse().map(x => {
+        const label = `${dayNames[x.d.getDay()]} ${String(x.d.getDate()).padStart(2, '0')}.${String(x.d.getMonth() + 1).padStart(2, '0')}`;
+        if (!x.logged) return `<div style="display:flex; justify-content:space-between; color:var(--text-sub);"><span>${label}</span><span>немає записів</span></div>`;
+        const diff = Math.round(x.eaten - x.goal);
+        return `<div style="display:flex; justify-content:space-between;"><span>${diff <= 0 ? '✅' : '⚠️'} ${label}</span><span>${Math.round(x.eaten)} / ${x.goal} <span style="color:${diff <= 0 ? 'var(--c-color)' : '#ff8a65'};">(${diff > 0 ? '+' : ''}${diff})</span></span></div>`;
+      }).join('');
+      box.innerHTML = `
+        <div style="background:#101114; border-radius:8px; padding:10px; margin-bottom:8px;">
+          Днів із записами: <b>${logged.length}</b> з 7 (сьогодні не враховано).<br>
+          У межах цілі: <b>${inGoal}</b> з ${logged.length}.<br>
+          У середньому за день: <b>${avg(logged, x => x.eaten)} ккал</b> при цілі ${avg(logged, x => x.goal)}.<br>
+          Б/Ж/В у середньому: ${avg(logged, x => x.P)} / ${avg(logged, x => x.F)} / ${avg(logged, x => x.C)} г.<br>
+          Вода в середньому: ${avg(logged, x => x.water)} мл${waterGoalMl() ? ` (норма ${waterGoalMl()})` : ''}.<br>
+          ${weightLine}<br>
+          Банк калорій зараз: <b>${calorieBank} ккал</b>.
+        </div>
+        <div style="font-size:11px;">${rows}</div>
+        <div style="font-size:10px; color:var(--text-sub); margin-top:6px;">Формат: з’їдено / ціль того дня (різниця).</div>`;
+    }
+
+    // ===== Адаптивний коректор за тижневими середніми =====
+    const ADAPTIVE_MIN_WEIGHINS = 5;
+    let adaptiveManual = { past: false, now: false };
+    function weekWeights(startOffset) {
+      const store = getHistoryStore();
+      const vals = [];
+      for (let i = startOffset; i < startOffset + 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const log = store[dateKey(d)];
+        if (log && typeof log.weight === 'number' && log.weight > 0) vals.push(log.weight);
+      }
+      return vals;
+    }
+    const avgOf = arr => arr.reduce((t, x) => t + x, 0) / arr.length;
+
+    function adaptiveNextRunText() {
+      let last = 0;
+      try { last = Number(localStorage.getItem('adaptiveLastRun')) || 0; } catch (e) {}
+      if (!last) return '';
+      const days = (Date.now() - last) / 86400000;
+      if (days >= 7) return '';
+      const left = Math.ceil(7 - days);
+      return `Остання корекція була ${Math.floor(days)} дн. тому. Наступна можлива через ${left} дн. (коригувати частіше за раз на тиждень немає сенсу).`;
     }
 
     function autofillAdaptiveWeights() {
       const nowInput = document.getElementById('nowWeight');
       const pastInput = document.getElementById('pastWeight');
-      const note = document.getElementById('adaptiveSourceNote');
+      const info = document.getElementById('adaptiveCounts');
       if (!nowInput || !pastInput) return;
-      const msgs = [];
-
-      // "Зараз" — завжди з профілю
-      const profW = parseFloat(document.getElementById('userWeight').value);
-      if (!isNaN(profW)) {
-        nowInput.value = profW;
-        msgs.push('«Зараз» — з твого профілю');
-      } else {
-        nowInput.value = '';
-        msgs.push('«Зараз» — вкажи вагу в профілі або введи вручну');
+      const cur = weekWeights(0), prev = weekWeights(7);
+      nowInput.value = cur.length ? (Math.round(avgOf(cur) * 10) / 10) : '';
+      pastInput.value = prev.length ? (Math.round(avgOf(prev) * 10) / 10) : '';
+      adaptiveManual = { past: false, now: false };
+      if (info) {
+        const ok = cur.length >= ADAPTIVE_MIN_WEIGHINS && prev.length >= ADAPTIVE_MIN_WEIGHINS;
+        info.innerHTML = `Зважувань: цей тиждень <b>${cur.length}</b>/7, минулий <b>${prev.length}</b>/7. ${ok ? '✅ Даних достатньо.' : `Потрібно хоча б ${ADAPTIVE_MIN_WEIGHINS} у кожному тижні — зважуйся щодня вранці й записуй вагу.`}` + (adaptiveNextRunText() ? `<br>${adaptiveNextRunText()}` : '');
       }
-
-      // "7 днів тому" — з історії ваги
-      const past = findPastWeight();
-      if (past) {
-        pastInput.value = past.val;
-        msgs.push(`«7 днів тому» — з історії (${past.daysAgo} дн. тому)`);
-      } else {
-        pastInput.value = '';
-        msgs.push('«7 днів тому» — історії ще немає (зберігай вагу в профілі щотижня) або введи вручну');
-      }
-      if (note) note.textContent = msgs.join('; ') + '. Ручна зміна потребує підтвердження.';
     }
 
-    function onAdaptiveManualEdit(which) {
+    async function addTodayWeighIn() {
+      const el = document.getElementById('todayWeighIn');
+      const v = parseFloat(String(el.value).replace(',', '.'));
+      if (isNaN(v) || v < 20 || v > 400) { await uiAlert('Введи вагу в кілограмах, наприклад 96.4'); return; }
+      document.getElementById('userWeight').value = v;
+      logTodayWeight(v);
+      recalculateNorms();
+      el.value = '';
+      autofillAdaptiveWeights();
+    }
+
+    async function onAdaptiveManualEdit(which) {
       const input = document.getElementById(which === 'now' ? 'nowWeight' : 'pastWeight');
       const val = parseFloat(input.value);
       if (isNaN(val) || val < 20 || val > 400) {
-        alert('Введи коректну вагу в кілограмах.');
+        await uiAlert('Введи коректну вагу в кілограмах.');
         autofillAdaptiveWeights();
         return;
       }
-      const label = which === 'now' ? 'вагу зараз (оновить профіль)' : 'вагу 7 днів тому (запишеться в історію)';
-      if (!confirm(`Ти дійсно хочеш додати значення вручну: ${val} кг?\nПрограма збереже ${label} і врахує її в розрахунку.`)) {
-        autofillAdaptiveWeights(); // повертаємо автоматичне значення
-        return;
-      }
-      if (which === 'now') {
-        document.getElementById('userWeight').value = val;
-        logTodayWeight(val);
-        recalculateNorms();
-      } else {
-        const store = getHistoryStore();
-        const d = new Date(); d.setDate(d.getDate() - 7);
-        const key = dateKey(d);
-        if (!store[key]) store[key] = { meals: { snidanok: [], obid: [], perekus: [], vecherya: [] }, water: 0, weight: null };
-        store[key].weight = val;
-        saveHistoryStore(store);
-      }
-      const note = document.getElementById('adaptiveSourceNote');
-      if (note) note.textContent = `✅ Значення ${val} кг додано вручну та враховано.`;
+      const ok = await uiConfirm(`Ти дійсно хочеш ввести середню вагу вручну: ${val} кг?\nВона буде використана в цьому розрахунку (в історію зважувань не запишеться).`);
+      if (!ok) { autofillAdaptiveWeights(); return; }
+      adaptiveManual[which] = true;
+      const info = document.getElementById('adaptiveCounts');
+      if (info) info.innerHTML += `<br>✅ Значення ${val} кг додано вручну та буде враховане.`;
     }
 
     function runAdaptiveCorrection() {
-      const past = parseFloat(document.getElementById('pastWeight').value);
-      const now = parseFloat(document.getElementById('nowWeight').value);
       const box = document.getElementById('adaptiveResultBox');
       box.style.display = 'block';
 
+      const waitText = adaptiveNextRunText();
+      if (waitText) { box.innerHTML = '⏳ ' + waitText; return; }
+
+      const past = parseFloat(document.getElementById('pastWeight').value);
+      const now = parseFloat(document.getElementById('nowWeight').value);
       if (isNaN(past) || isNaN(now)) {
-        box.innerHTML = 'Введи обидва значення ваги (або збережи вагу в профілі кілька разів, щоб історія накопичилась).';
+        box.innerHTML = 'Немає середніх ваг. Записуй вагу щодня (поле «Вага сьогодні»), а після 5+ зважувань у кожному з двох тижнів коректор запрацює. Або введи середні вручну.';
+        return;
+      }
+      const cur = weekWeights(0), prev = weekWeights(7);
+      const curOk = adaptiveManual.now || cur.length >= ADAPTIVE_MIN_WEIGHINS;
+      const prevOk = adaptiveManual.past || prev.length >= ADAPTIVE_MIN_WEIGHINS;
+      if (!curOk || !prevOk) {
+        box.innerHTML = `Замало зважувань для надійного висновку: цей тиждень ${cur.length}, минулий ${prev.length} (потрібно ${ADAPTIVE_MIN_WEIGHINS}+ у кожному). Вага коливається щодня через воду, тому один-два заміри можуть збити ціль.`;
         return;
       }
 
-      const maintenance = parseFloat((document.getElementById('calcMaint').innerText || '').replace(/\D/g, '')) || Math.round(userGoalKcal / 0.85);
+      const maintenance = parseFloat((document.getElementById('calcMaint').innerText || '').replace(/\D/g, '')) || Math.round(baseGoalKcal / 0.9);
       const plannedGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
       const expectedLossKg = (maintenance - plannedGoal) * 7 / 7700;
       const actualLossKg = past - now;
@@ -1316,36 +1474,39 @@
       dailyAdjustment = Math.max(-150, Math.min(150, dailyAdjustment));
 
       const MIN_SAFE_KCAL = 1200;
-      const MAX_TOTAL_ADJ = 300; // коректор не відходить від розрахунку більше ніж на 300 ккал
+      const MAX_TOTAL_ADJ = 300;
       let newAdj = adaptiveAdjustment - dailyAdjustment;
       newAdj = Math.max(-MAX_TOTAL_ADJ, Math.min(MAX_TOTAL_ADJ, newAdj));
       if (baseGoalKcal + newAdj < MIN_SAFE_KCAL) newAdj = MIN_SAFE_KCAL - baseGoalKcal;
       const oldGoal = userGoalKcal;
 
+      try { localStorage.setItem('adaptiveLastRun', String(Date.now())); } catch (e) {}
       if (Math.abs(dailyAdjustment) < 40 || newAdj === adaptiveAdjustment) {
-        box.innerHTML = `✅ Динаміка відповідає очікуванням (очікували ${expectedLossKg.toFixed(1)} кг, вийшло ${actualLossKg.toFixed(1)} кг). Ціль лишається ${userGoalKcal} ккал.`;
+        box.innerHTML = `✅ Динаміка відповідає очікуванням (очікували ${expectedLossKg.toFixed(1)} кг, вийшло ${actualLossKg.toFixed(1)} кг за тиждень, за середніми вагами). Ціль лишається ${userGoalKcal} ккал.`;
       } else {
         adaptiveAdjustment = newAdj;
         try { localStorage.setItem('adaptiveAdjustment', String(adaptiveAdjustment)); } catch (e) {}
         applyGoal();
         const slower = dailyAdjustment > 0;
-        box.innerHTML = `🔄 Схуднення ${slower ? 'повільніше' : 'швидше'} за очікуване (${actualLossKg.toFixed(1)} кг замість ${expectedLossKg.toFixed(1)} кг). Ціль на день: <b>${userGoalKcal} ккал</b> (було ${oldGoal}). Вона вже змінилась на головному екрані.<br><button class="btn-small" style="margin-top:6px;" onclick="resetAdaptiveAdjustment()">Скинути коригування</button>`;
+        box.innerHTML = `🔄 Схуднення ${slower ? 'повільніше' : 'швидше'} за очікуване (${actualLossKg.toFixed(1)} кг замість ${expectedLossKg.toFixed(1)} кг, за середніми вагами). Ціль на день: <b>${userGoalKcal} ккал</b> (було ${oldGoal}). Вона вже змінилась на головному екрані.<br><button class="btn-small" style="margin-top:6px;" onclick="resetAdaptiveAdjustment()">Скинути коригування</button>`;
       }
       updateDisplayValues();
+      autofillAdaptiveWeights();
     }
 
     function resetAdaptiveAdjustment() {
       adaptiveAdjustment = 0;
-      try { localStorage.removeItem('adaptiveAdjustment'); } catch (e) {}
+      try { localStorage.removeItem('adaptiveAdjustment'); localStorage.removeItem('adaptiveLastRun'); } catch (e) {}
       applyGoal();
       updateDisplayValues();
       const box = document.getElementById('adaptiveResultBox');
       if (box) { box.style.display = 'block'; box.innerHTML = `Коригування скинуто. Ціль на день: ${userGoalKcal} ккал.`; }
+      autofillAdaptiveWeights();
     }
 
     function transferBankToDay() {
       refreshBank();
-      if (calorieBank <= 0) { alert("Банк порожній! Він наповнюється недоїденими калоріями попередніх днів (за останні 7 днів)."); return; }
+      if (calorieBank <= 0) { uiAlert("Банк порожній! Він наповнюється недоїденими калоріями попередніх днів (за останні 7 днів)."); return; }
       const amount = calorieBank;
       const key = dateKey(selectedCalendarDate);
       const tr = getBankTransfers();
@@ -1354,7 +1515,7 @@
       applyGoal();
       refreshBank();
       updateDisplayValues();
-      alert(`👥 Перенесено +${amount} ккал з банку на цей день.`);
+      uiAlert(`👥 Перенесено +${amount} ккал з банку на цей день.`);
     }
 
     window.generateFridgeRecipe = async function () {
@@ -1362,7 +1523,7 @@
       const ingredients = inputEl.value.trim();
       const resultBox = document.getElementById('fridgeResult');
       if (!ingredients) {
-        alert("Введи хоча б кілька продуктів з холодильника!");
+        uiAlert("Введи хоча б кілька продуктів з холодильника!");
         return;
       }
 
@@ -1391,7 +1552,7 @@
           }
         });
 
-        const name = (result.name || '🍽️ Страва від ШІ').replace(/'/g, '’');
+        const name = safeAttr(result.name || '🍽️ Страва від ШІ');
         const desc = result.desc || '';
         const kcal = Math.round(Number(result.kcal)) || 0;
         const p = Math.round(Number(result.protein)) || 0;
@@ -1399,7 +1560,7 @@
         const c = Math.round(Number(result.carbs)) || 0;
         const fiber = Math.round(Number(result.fiber)) || 0;
         const sugar = Math.round(Number(result.sugar)) || 0;
-        const portion = (result.portion || 'порція').replace(/'/g, '’');
+        const portion = safeAttr(result.portion || 'порція');
 
         resultBox.innerHTML = `
           <div style="font-weight:700; color:var(--accent-gold); margin-bottom:2px;">${name}</div>
@@ -1453,7 +1614,7 @@
             <b>${prod.name}</b>
             <div style="font-size:10px; color:#8e8e93;">${prod.kcal} ккал | ${prod.p}б · ${prod.f}ж · ${prod.c}в (100г)</div>
           </div>
-          <button class="btn-small btn-gold" onclick="addCustomFood('${prod.name}', ${prod.kcal}, ${prod.p}, ${prod.f}, ${prod.c}, '100г')">+ Додати</button>
+          <button class="btn-small btn-gold" onclick="addCustomFood('${safeAttr(prod.name)}', ${prod.kcal}, ${prod.p}, ${prod.f}, ${prod.c}, '100г')">+ Додати</button>
         `;
         container.appendChild(item);
       });
@@ -1488,7 +1649,7 @@
           <div style="font-size:11px; color:#aaa; margin-bottom:6px;">${rec.desc}</div>
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font-size:11px; font-weight:700;">${rec.kcal} ккал</span>
-            <button class="btn-small btn-gold" onclick="addCustomFood('${rec.name}', ${rec.kcal}, ${rec.p}, ${rec.f}, ${rec.c}, 'порція')">В щоденник</button>
+            <button class="btn-small btn-gold" onclick="addCustomFood('${safeAttr(rec.name)}', ${rec.kcal}, ${rec.p}, ${rec.f}, ${rec.c}, 'порція')">В щоденник</button>
           </div>
         `;
         container.appendChild(item);
@@ -1546,12 +1707,12 @@
     }
 
     function triggerPhotoUpload() {
-      alert('📷 ШІ-скан: фото розпізнано! Додано салат овочевий (~180 ккал).');
+      uiAlert('📷 ШІ-скан: фото розпізнано! Додано салат овочевий (~180 ккал).');
       addCustomFood('Салат овочевий (ШІ-скан)', 180, 3, 10, 8, '200г');
     }
 
     function triggerBarcodeScan() {
-      alert('🏷️ Сканер штрих-кодів: продукт знайдено. Додано батончик (210 ккал).');
+      uiAlert('🏷️ Сканер штрих-кодів: продукт знайдено. Додано батончик (210 ккал).');
       addCustomFood('Протеїновий батончик', 210, 20, 6, 15, '60г');
     }
 
@@ -1565,7 +1726,7 @@
     }
 
     // ===== Резервна копія =====
-    const BACKUP_KEYS = ['foodDiaryHistory', 'userProfileData', 'userBodyMeasurements', 'bankTransfers', 'adaptiveAdjustment'];
+    const BACKUP_KEYS = ['foodDiaryHistory', 'userProfileData', 'userBodyMeasurements', 'bankTransfers', 'adaptiveAdjustment', 'adaptiveLastRun'];
     const BACKUP_KEY_SECRETS = ['geminiApiKeys', 'geminiApiKey'];
     function backupStatus(msg) { const el = document.getElementById('backupStatus'); if (el) el.textContent = msg; }
     function buildBackupText() {
@@ -1605,21 +1766,21 @@
       r.onerror = () => backupStatus('Не вдалося прочитати файл.');
       r.readAsText(f);
     }
-    function restoreFromText(text) {
+    async function restoreFromText(text) {
       let obj;
       try { obj = JSON.parse((text || '').trim()); } catch (e) { backupStatus('Це не схоже на копію додатка (помилка читання).'); return; }
       if (!obj || obj.app !== 'schodennik' || !obj.data || typeof obj.data !== 'object') { backupStatus('Це не копія цього додатка.'); return; }
       const allowed = BACKUP_KEYS.concat(BACKUP_KEY_SECRETS);
       const keys = Object.keys(obj.data).filter(k => allowed.includes(k) && typeof obj.data[k] === 'string');
       if (!keys.length) { backupStatus('У копії немає даних.'); return; }
-      if (!confirm(`Відновити дані з копії від ${String(obj.date || '').slice(0, 10) || 'невідомої дати'}? Поточні дані (історія, профіль, заміри, банк) будуть замінені.`)) return;
+      if (!(await uiConfirm(`Відновити дані з копії від ${String(obj.date || '').slice(0, 10) || 'невідомої дати'}? Поточні дані (історія, профіль, заміри, банк) будуть замінені.`))) return;
       keys.forEach(k => { try { localStorage.setItem(k, obj.data[k]); } catch (e) {} });
       backupStatus('✅ Дані відновлено. Перезавантажую...');
       setTimeout(() => location.reload(), 700);
     }
 
     // Змінити порцію продукту: калорії, БЖВ, клітковина й цукор перераховуються пропорційно
-    function editFoodPortion(portionEl) {
+    async function editFoodPortion(portionEl) {
       const item = portionEl.closest('.food-item');
       if (!item) return;
       const subs = item.querySelectorAll('.food-sub span');
@@ -1641,10 +1802,10 @@
       const hasNum = !!m;
       const unit = hasNum ? m[3] : '';
       const cur = hasNum ? parseFloat(m[1].replace(',', '.')) : 1;
-      const ans = prompt(hasNum ? `Нова кількість (${unit || 'одиниць'}):` : 'Скільки порцій?', String(cur));
+      const ans = await uiPrompt(hasNum ? `Нова кількість (${unit || 'одиниць'}):` : 'Скільки порцій?', String(cur));
       if (ans === null) return;
       const val = parseFloat(String(ans).replace(',', '.'));
-      if (isNaN(val) || val <= 0 || val > 10000) { alert('Введи число більше нуля.'); return; }
+      if (isNaN(val) || val <= 0 || val > 10000) { uiAlert('Введи число більше нуля.'); return; }
       const f = val / baseAmt;
       kcalEl.textContent = Math.round(Number(item.dataset.baseKcal) * f);
       subs[0].textContent = Math.round(Number(item.dataset.baseP) * f) + 'б';
@@ -1687,7 +1848,7 @@
     loadBodyMeasurementsData();
     recalculateNorms();
     // Будь-яка зміна параметрів профілю одразу перераховує TDEE і ціль на головному екрані
-    ['userAge', 'userGender', 'userHeight', 'userWeight', 'targetWeight'].forEach(id => {
+    ['userAge', 'userGender', 'userHeight', 'userWeight', 'targetWeight', 'userActivity', 'userDeficit', 'userCustomGoal'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('input', recalculateNorms);
@@ -2318,8 +2479,14 @@
           openManualAdd(normalized);
           return;
         }
-        addCustomFood(name, kcal, p, f, c, '100г', fiber, sugar);
-        setAIStatus(`🏷️ Знайдено в базі: «${name}» (${kcal} ккал/100г). Додано до щоденника.`, 'ok');
+        const gramsAns = await uiPrompt(`«${name}»\nСкільки грамів (мл) ти з'їла? У базі дані на 100 г: ${kcal} ккал.`, '100');
+        if (gramsAns === null) { setAIStatus('Додавання скасовано.', 'warn'); return; }
+        let grams = parseFloat(String(gramsAns).replace(',', '.'));
+        if (isNaN(grams) || grams <= 0 || grams > 5000) grams = 100;
+        const gk = grams / 100;
+        const r1 = v => Math.round(v * 10) / 10;
+        addCustomFood(name, Math.round(kcal * gk), Math.round(p * gk), Math.round(f * gk), Math.round(c * gk), `${grams}г`, r1(fiber * gk), r1(sugar * gk));
+        setAIStatus(`🏷️ Знайдено в базі: «${name}» — ${grams} г = ${Math.round(kcal * gk)} ккал. Додано до щоденника.`, 'ok');
         return;
       }
 
@@ -2345,7 +2512,7 @@
   }
 
   async function manualBarcodeEntry() {
-    const code = prompt('Введи 8–14 цифр штрихкоду продукту (або скасуй):');
+    const code = await uiPrompt('Введи 8–14 цифр штрихкоду продукту (або скасуй):', '');
     if (code === null) return;
     const normalized = code.replace(/\D/g, '');
     if (!normalized) { setAIStatus('Штрихкод не введено.', 'warn'); return; }
@@ -2665,13 +2832,17 @@
       goal: userGoalKcal, eaten: Math.round(currentEatenKcal),
       p: Math.round(userGoalKcal * 0.30 / 4), f: Math.round(userGoalKcal * 0.30 / 9), c: Math.round(userGoalKcal * 0.40 / 4),
       fiber: Math.round(userGoalKcal / 1000 * 14), sugar: Math.round(userGoalKcal * 0.10 / 4),
+      water: currentWater, waterGoal: waterGoalMl(),
+      weight: (document.getElementById('userWeight') || {}).value || '', target: (document.getElementById('targetWeight') || {}).value || '',
+      day: selectedCalendarDate.toLocaleDateString('uk-UA'),
+      activity: (document.getElementById('userActivity').selectedOptions[0] || {}).text || '',
       sign
     };
   }
 
   const HELP_FAQ = [
     { q: 'Як рахується моя ціль на день?', k: ['ціль', 'tdee', 'тдее', 'калорі', 'норм', 'скільки їсти', 'розрахун', 'формул'],
-      a: x => `Ціль на день складається з кількох частин:\n1) Базовий обмін за формулою Міффліна-Сан Жеора: 10 × вага + 6,25 × зріст − 5 × вік, і ще +5 для чоловіків або −161 для жінок.\n2) Він множиться на 1,375 (легка активність) — це «підтримання маси» (TDEE).\n3) Для схуднення від TDEE віднімається 15% — це базова ціль.\n4) До неї додаються коригування адаптивного коректора (до ±300 ккал) і калорії, перенесені з банку.\n\n${x.hasProfile ? `У тебе зараз: підтримання ${x.maint}, база ${x.base} ккал, коригування коректора ${x.sign(x.adj)}, з банку на цей день ${x.sign(x.bonus)}. Разом: ${x.goal} ккал.` : 'Щоб побачити свої цифри, заповни профіль (вік, зріст, вага).'}\n\nОбмеження: множник активності фіксований (1,375), тренування окремо не враховуються. Ціль не опускається нижче 1200 ккал.` },
+      a: x => `Ціль на день складається з кількох частин:\n1) Базовий обмін за формулою Міффліна-Сан Жеора: 10 × вага + 6,25 × зріст − 5 × вік, і ще +5 для чоловіків або −161 для жінок.\n2) Він множиться на коефіцієнт активності з профілю (сидяча робота 1,2; легка 1,375; помірна 1,55; висока 1,725) — це «підтримання маси» (TDEE).\n3) Від TDEE віднімається обраний тобою дефіцит (−10%, −15% або −20%) — це базова ціль. Або береться твоя власна ціль, якщо ти ввела її в профілі.\n4) До неї додаються коригування адаптивного коректора (до ±300 ккал) і калорії, перенесені з банку.\n\n${x.hasProfile ? `У тебе зараз: підтримання ${x.maint}, база ${x.base} ккал, коригування коректора ${x.sign(x.adj)}, з банку на цей день ${x.sign(x.bonus)}. Разом: ${x.goal} ккал.` : 'Щоб побачити свої цифри, заповни профіль (вік, зріст, вага).'}\n\nОбмеження: тренування окремо не рахуються, є лише вибір рівня активності. Ціль не опускається нижче 1200 ккал.` },
     { q: 'Як рахуються білки, жири, вуглеводи?', k: ['білк', 'жир', 'вуглев', 'бжв', 'макро'],
       a: x => `Норми БЖВ беруться від цілі дня: білки 30% калорій (÷4 ккал на грам), жири 30% (÷9), вуглеводи 40% (÷4).\nУ тебе зараз: білки ${x.p} г, жири ${x.f} г, вуглеводи ${x.c} г.\nЦе загальний розподіл, а не індивідуальний план дієтолога. Фактичні значення беруться з продуктів, які ти додала.` },
     { q: 'Як рахуються клітковина і цукор?', k: ['клітков', 'цукор', 'цукр'],
@@ -2679,9 +2850,9 @@
     { q: 'Що таке банк калорій і як він працює?', k: ['банк', 'недоїд', 'перенес', 'накопич'],
       a: x => `Банк збирає недоїдені калорії днів за останні 7 днів. Рахуються тільки дні, де є хоч якісь записи їжі, щоб порожні дні не роздували банк. Старші за 7 днів калорії згорають.\nПеребір (коли з’їла більше цілі) віднімається з банку, але банк не опускається нижче нуля.\nКнопка «Перенести» додає банк до цілі обраного дня. Невикористане після завершення дня повертається в банк, а сьогодні його можна повернути кнопкою «Повернути невикористане в банк».\nЗараз у банку: ${x.bank} ккал.` },
     { q: 'Що робить Адаптивний коректор?', k: ['адаптив', 'коректор', 'корекц'],
-      a: x => `Він порівнює, наскільки ти схудла за тиждень, з тим, що очікувалось при твоїй цілі (7700 ккал ≈ 1 кг). Якщо схуднення повільніше — ціль трохи зменшується, якщо швидше — трохи збільшується. Зміна обмежена: загалом не більше ±300 ккал від розрахунку, ціль не нижче 1200.\n«Вага зараз» береться з профілю, «7 днів тому» — з історії ваги. Якщо вводиш вручну, додаток просить підтвердження й зберігає значення.\nЗараз коригування: ${x.sign(x.adj)} ккал. Його можна скинути кнопкою в коректорі.` },
+      a: x => `Він порівнює СЕРЕДНЮ вагу за останні 7 днів із середньою за попередні 7 (так вага не стрибає через воду) і дивиться, чи збігається схуднення з очікуваним (7700 ккал ≈ 1 кг). Потрібно хоча б 5 зважувань у кожному тижні; вагу записуй у полі «Вага сьогодні». Корекція можлива раз на 7 днів: повільніше схуднення — ціль трохи зменшується, швидше — трохи збільшується. Загалом не більше ±300 ккал від розрахунку, ціль не нижче 1200.\nЯкщо вводиш середню вагу вручну, додаток просить підтвердження.\nЗараз коригування: ${x.sign(x.adj)} ккал. Його можна скинути кнопкою в коректорі.` },
     { q: 'Як додати їжу? Що вміє ШІ-чат?', k: ['додат', 'їж', 'чат', 'сніданок', 'обід', 'вечер', 'перекус', 'видал', 'прибр', 'порці', 'грам'],
-      a: () => `Додати їжу можна 5 способами:\n• Написати в рядку внизу («2 яйця і тост»). ШІ оцінює калорії й БЖВ.\n• Вказати прийом: «на сніданок було яйце» — додасться саме в сніданок, навіть увечері. Так само можна прибрати: «прибери яйце зі сніданку».\n• Змінити порцію: торкнись напису порції біля продукту (з позначкою ✎) і введи нову кількість — калорії, БЖВ, клітковина й цукор перерахуються. Або напиши ШІ-чату.\n• Сканувати штрихкод (🏷️) — дані з Open Food Facts.\n• Сфотографувати страву (📷) — ШІ оцінює за фото.\nЯкщо прийом не вказано, додаток обирає його за часом доби. Продукт можна видалити хрестиком. Продукт зі штрихкоду додається як 100 г.` },
+      a: () => `Додати їжу можна 5 способами:\n• Написати в рядку внизу («2 яйця і тост»). ШІ оцінює калорії й БЖВ.\n• Вказати прийом: «на сніданок було яйце» — додасться саме в сніданок, навіть увечері. Так само можна прибрати: «прибери яйце зі сніданку».\n• Змінити порцію: торкнись напису порції біля продукту (з позначкою ✎) і введи нову кількість — калорії, БЖВ, клітковина й цукор перерахуються. Або напиши ШІ-чату.\n• Сканувати штрихкод (🏷️) — дані з Open Food Facts.\n• Сфотографувати страву (📷) — ШІ оцінює за фото.\nЯкщо прийом не вказано, додаток обирає його за часом доби. Продукт можна видалити хрестиком. Після сканування додаток питає, скільки грамів ти з'їла.` },
     { q: 'Як працює сканер штрихкоду?', k: ['штрих', 'скан', 'камер'],
       a: () => `Камера зчитує штрихкод, перевіряє контрольну цифру і шукає товар у базі Open Food Facts. Якщо його там немає — відкриється картка для ручного введення (можна попросити ШІ оцінити за назвою).\nПотрібні дозвіл на камеру та інтернет. Якщо вбудованого розпізнавача в телефоні немає, додаток один раз завантажує запасний.\nБаза не містить усіх товарів, а дані в ній вводять люди, тож їх варто перевіряти.` },
     { q: 'Де зберігаються мої дані?', k: ['дан', 'зберіга', 'історі', 'пам', 'втрат', 'резерв', 'копі', 'телефон'],
@@ -2692,20 +2863,24 @@
       a: () => `ІМТ = вага ÷ зріст² (у метрах). Орієнтир: <18,5 — недостатня, 18,5–25 — норма, 25–30 — надлишкова, 30+ — ожиріння. ІМТ не відрізняє м'язи від жиру.\nЖир тіла рахується за формулою ВМС США (за талією, шиєю, зростом, для жінок ще стегнами) — це оцінка з похибкою.\nWHR (талія/стегна) і WHtR (талія/зріст) показують розподіл жиру: тривожні значення — WHR від 0,85 (жінки) або 0,90 (чоловіки), WHtR від 0,5.\nЦе довідкові орієнтири, не діагноз.` },
     { q: 'Яка норма води?', k: ['вод', 'гідрат', 'пити'],
       a: () => { const g = waterGoalMl(); return `Норма води — приблизно 30 мл на кожен кілограм ваги (округлено до 50 мл)${g ? `: у тебе ${g} мл на день` : '. Заповни вагу в профілі, щоб побачити свою норму'}. Кнопки +250, +500 додають воду, −250 виправляє помилку. Це загальний орієнтир: при хворобах серця чи нирок, вагітності або спеці норму варто уточнити в лікаря.`; } },
+    { q: 'Що є в додатку? Огляд розділів', k: ['огляд', 'що є', 'розділ', 'меню', 'функці', 'вміє', 'можливост'],
+      a: () => `Головний екран: денна ціль і залишок калорій, БЖВ, клітковина, цукор, банк, вода, прийоми їжі, календар днів, рядок швидкого додавання їжі (текст, 🏷️ штрихкод, 📷 фото).\nМеню ☰: Профіль & Цілі (з рівнем активності); Адаптивний коректор; Прогрес, Заміри & ШІ-аналітика (графіки, жир тіла, тижневий ШІ-звіт); Тижневий підсумок (середні калорії, дні в межах цілі, вага); Гнучкий банк калорій; Наукові розрахунки TDEE; Психологія й факти від ШІ; База продуктів; Оцінка порцій «на око»; Книга рецептів і ШІ-генератор страв з холодильника; Довідка; Резервна копія; ШІ-ключі.` },
     { q: 'Що додаток НЕ вміє?', k: ['не вміє', 'не може', 'обмеж', 'мінус', 'недолік', 'можливост'],
       a: () => `Чесно, чого поки немає:
 • Синхронізації між телефонами та хмари (є лише ручна резервна копія).
 • Сповіщень, коли додаток закритий.
-• Точного обліку тренувань і кроків (активність фіксована, 1,375).
+• Точного обліку тренувань і кроків (є лише вибір рівня активності в профілі).
 • Різниці між доданим і природним цукром.
 • Лікарських порад: це не медичний прилад, а трекер. При хворобах, вагітності чи розладах харчування ціль слід узгоджувати з лікарем.
 Також ШІ та бази продуктів можуть помилятись.` }
   ];
 
+  const helpHistory = [];
   function renderHelpChips() {
     const box = document.getElementById('helpChips');
     if (!box) return;
-    box.innerHTML = HELP_FAQ.map((f, i) => `<button class="btn-small" style="margin:3px 4px 3px 0; background:#2a2b30; color:#ddd;" onclick="showHelpFaq(${i})">${f.q}</button>`).join('');
+    const popular = ['Як рахується моя ціль на день?', 'Що таке банк калорій і як він працює?', 'Як додати їжу? Що вміє ШІ-чат?', 'Що додаток НЕ вміє?'];
+    box.innerHTML = HELP_FAQ.map((f, i) => popular.includes(f.q) ? `<button class="btn-small" style="margin:3px 4px 3px 0; background:#2a2b30; color:#ddd;" onclick="showHelpFaq(${i})">${f.q}</button>` : '').join('');
   }
   function showHelpAnswer(title, text, extra) {
     const out = document.getElementById('helpAnswer');
@@ -2743,16 +2918,21 @@
     btn.disabled = true; btn.textContent = '⏳ Думаю...';
     const x = helpCtx();
     const knowledge = HELP_FAQ.map(f => `# ${f.q}\n${f.a(x)}`).join('\n\n');
-    const systemPrompt = `Ти — довідковий помічник застосунку «Розумний Щоденник» (трекер калорій, українською). Відповідай ТІЛЬКИ про цей застосунок: що він рахує, як, що вміє і чого не вміє. Спирайся лише на довідку нижче й живі цифри користувача. Якщо в довідці немає відповіді — чесно скажи, що не знаєш або що такої функції немає; нічого не вигадуй і не обіцяй функцій. Не давай медичних порад. Відповідай коротко, простою мовою, 2–6 речень.
+    const live = `ЖИВІ ДАНІ КОРИСТУВАЧА (дата ${x.day}): ціль дня ${x.goal} ккал (база ${x.base}, коректор ${x.adj}, з банку ${x.bonus}); з'їдено ${x.eaten} ккал; банк ${x.bank} ккал; вода ${x.water} мл з ${x.waterGoal || 'норма не задана'}; вага ${x.weight || 'не вказана'} кг, ціль ${x.target || 'не вказана'} кг.`;
+    const history = helpHistory.slice(-3).map(h => `Питання: ${h.q}\nВідповідь: ${h.a}`).join('\n---\n');
+    const systemPrompt = `Ти — ШІ-помічник застосунку «Розумний Щоденник» (трекер калорій, українською). Користувач може спитати про що завгодно у застосунку: як щось рахується, де що знаходиться, що можна зробити, чого не можна, чому на екрані саме такі цифри. Відповідай ТІЛЬКИ про цей застосунок, спираючись на довідку нижче та живі дані користувача, і підставляй його реальні цифри, коли це доречно. Якщо у довідці немає відповіді — чесно скажи, що не знаєш або що такої функції немає, і підкажи найближче, що є. Нічого не вигадуй і не обіцяй функцій, яких немає. Не давай медичних порад; якщо питання про здоров'я — порадь лікаря. Коротко, простою мовою, 2–7 речень, за потреби — короткий список кроків.
 Відповідай ЛИШЕ одним JSON: {"answer":"текст"}
 
+${live}
+
 ДОВІДКА:
-${knowledge}`;
+${knowledge}${history ? '\n\nПОПЕРЕДНІ ПИТАННЯ ЦІЄЇ СЕСІЇ:\n' + history : ''}`;
     try {
       const res = await callGeminiWithRetry(systemPrompt, question, null, { maxTokens: 600, maxAttempts: 2 });
       const ans = (res && res.answer) ? String(res.answer) : '';
       if (!ans) throw new Error('empty');
-      showHelpAnswer(question, ans, 'Відповідь ШІ на основі довідки. Для точних цифр дивись розділи вище.');
+      helpHistory.push({ q: question, a: ans.slice(0, 400) });
+      showHelpAnswer(question, ans, 'Відповідь ШІ на основі довідки та твоїх даних.');
     } catch (e) { fallback(); }
     btn.disabled = false; btn.textContent = 'Запитати';
   };
