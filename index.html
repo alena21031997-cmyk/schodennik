@@ -2244,19 +2244,67 @@
     });
   }
 
+  // ===== Камера всередині додатка: кадр береться з відео й нікуди не зберігається (галерея не засмічується) =====
+  let photoCamStream = null;
+  function closePhotoCamera() {
+    const ov = document.getElementById('photoCamOverlay');
+    if (ov) ov.remove();
+    if (photoCamStream) { photoCamStream.getTracks().forEach(t => t.stop()); photoCamStream = null; }
+  }
+  async function openPhotoCamera() {
+    closePhotoCamera();
+    const ov = document.createElement('div');
+    ov.id = 'photoCamOverlay';
+    ov.style.cssText = 'position:fixed; inset:0; background:#000; z-index:9000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px;';
+    ov.innerHTML = '<video id="photoCamVideo" playsinline muted autoplay style="width:100%; max-height:70vh; object-fit:contain; background:#111; border-radius:12px;"></video>' +
+      '<div id="photoCamStatus" style="color:#fff; font-size:13px; margin:12px 0; text-align:center;">📷 Наведи на страву й натисни «Сфотографувати». Фото не зберігається в галереї.</div>' +
+      '<div style="display:flex; gap:10px;"><button id="photoCamShot" style="padding:12px 20px; background:#c69b52; color:#000; border:none; border-radius:10px; font-size:15px; font-weight:700;">📸 Сфотографувати</button>' +
+      '<button id="photoCamClose" style="padding:12px 20px; background:#333; color:#fff; border:none; border-radius:10px; font-size:15px;">Закрити</button></div>';
+    document.body.appendChild(ov);
+    const video = ov.querySelector('#photoCamVideo');
+    const status = ov.querySelector('#photoCamStatus');
+    ov.querySelector('#photoCamClose').onclick = closePhotoCamera;
+    try {
+      photoCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      video.srcObject = photoCamStream;
+      await video.play();
+    } catch (err) {
+      status.textContent = `Не вдалося увімкнути камеру: ${err.message || 'доступ заборонено'}. Дозволь камеру в налаштуваннях телефона для цього додатка.`;
+      ov.querySelector('#photoCamShot').style.display = 'none';
+      return;
+    }
+    ov.querySelector('#photoCamShot').onclick = () => {
+      if (!video.videoWidth) return;
+      const maxSide = 1024;
+      const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => {
+        closePhotoCamera();
+        if (!blob) { setAIStatus('Не вдалося зробити кадр. Спробуй ще раз.', 'warn'); return; }
+        analyzeFoodPhoto(new File([blob], 'meal.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.85);
+    };
+  }
+
   window.triggerPhotoUpload = function () {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) { openPhotoCamera(); return; }
     const input = document.getElementById('photoInput');
     if (input) input.click();
   };
 
   window.handlePhotoSelected = async function (inputEl) {
     const file = inputEl.files && inputEl.files[0];
-    if (!file) return;
+    try { if (file) await analyzeFoodPhoto(file); } finally { inputEl.value = ''; }
+  };
 
+  async function analyzeFoodPhoto(file) {
+    if (!file) return;
     const apiKey = getApiKey();
     if (!apiKey) {
       setAIStatus('Додай безкоштовний Gemini API-ключ у меню ☰ → «🔑 ШІ-помічник», щоб фото-аналіз запрацював.', 'warn');
-      inputEl.value = '';
       return;
     }
 
@@ -2297,10 +2345,8 @@
       setAIStatus(`📷 Розпізнано: «${result.name}» (~${kcal} ккал). Додано до ${currentMeal.name.toLowerCase()}.`, 'ok');
     } catch (err) {
       setAIStatus(friendlyAiError(err), 'warn');
-    } finally {
-      inputEl.value = '';
     }
-  };
+  }
 
   async function askAI(userText, apiKey, onRetry) {
     const currentMeal = mealsList[selectedMealIndex];
