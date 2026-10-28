@@ -99,6 +99,8 @@
     .food-title { font-weight: 500; margin-bottom: 2px; }
     .food-sub { font-size: 10px; color: var(--text-sub); }
     .food-right { display: flex; align-items: center; gap: 12px; text-align: right; }
+    .food-right > div > div:first-child { cursor: pointer; }
+    .food-right > div > div:first-child::after { content: ' ✎'; font-size: 9px; opacity: .7; }
     .del-btn { color: var(--text-sub); cursor: pointer; font-size: 14px; margin-left: 6px; }
 
     /* Нижній ШІ-Чат */
@@ -205,9 +207,10 @@
   <div class="water-box">
     <div>
       <div style="font-size:12px; color:var(--text-sub);">💧 Гідратація</div>
-      <div style="font-size:16px; font-weight:800;"><span id="waterVal">0</span> мл</div>
+      <div style="font-size:16px; font-weight:800;"><span id="waterVal">0</span><span id="waterGoalText" style="font-size:12px; font-weight:400; color:var(--text-sub);"></span> мл</div>
     </div>
     <div>
+      <button class="btn-small" onclick="addWater(-250)">−250</button>
       <button class="btn-small" onclick="addWater(250)">+250 мл</button>
       <button class="btn-small" onclick="addWater(500)">+500 мл</button>
     </div>
@@ -409,6 +412,8 @@
         <strong id="menuBankVal" style="color:var(--accent-gold);">+0 ккал</strong>
       </div>
       <button class="btn-small btn-gold" style="width:100%; padding:6px;" onclick="transferBankToDay()">Перенести накопичене на сьогодні</button>
+      <div id="bankDayInfo" style="font-size:11px; color:var(--text-sub); margin:8px 0 6px;"></div>
+      <button class="btn-small" style="width:100%; padding:6px; background:#2a2b30; color:#ddd;" onclick="returnUnusedBank()">↩️ Повернути невикористане в банк</button>
     </div>
 
     <!-- 5. НАУКОВІ РОЗРАХУНКИ -->
@@ -492,6 +497,38 @@
 
       <input type="text" class="search-input" placeholder="🔍 Пошук готових рецептів..." onkeyup="filterRecipes(this.value)">
       <div class="catalog-list" id="recipesCatalogList"></div>
+    </div>
+
+    <!-- 9.5 ДОВІДКА & ПОМІЧНИК ПО ДОДАТКУ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('helpSub')">
+      <span>❓ Довідка & Помічник по додатку</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="helpSub">
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">Обери питання — відповідь одразу, з твоїми цифрами. Або запитай своїми словами.</div>
+      <div id="helpChips"></div>
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <input type="text" id="helpQuestion" placeholder="Напр.: чому моя ціль саме така?" style="flex:1; background:#101114; border:1px solid #262830; border-radius:8px; color:#fff; padding:8px; font-size:12px;" onkeydown="if(event.key==='Enter'){askAppHelper()}">
+        <button class="btn-small btn-gold" id="helpAskBtn" onclick="askAppHelper()">Запитати</button>
+      </div>
+      <div id="helpAnswer" style="display:none; margin-top:10px; background:#101114; border-radius:8px; padding:10px; font-size:12px; color:#ddd;"></div>
+    </div>
+
+    <!-- 9.7 РЕЗЕРВНА КОПІЯ -->
+    <div class="menu-item-btn" onclick="toggleSubContent('backupSub')">
+      <span>💾 Резервна копія даних</span> <span>▼</span>
+    </div>
+    <div class="menu-item-content" id="backupSub">
+      <div style="font-size:11px; color:#aaa; margin-bottom:8px;">Усі дані живуть лише в цьому телефоні. Збережи копію (історія, профіль, заміри, банк), щоб не втратити її при очищенні даних чи зміні телефона.</div>
+      <label style="display:flex; gap:6px; align-items:center; font-size:11px; margin-bottom:8px;"><input type="checkbox" id="backupWithKeys"> Додати в копію API-ключі Gemini (не передавай такий файл іншим)</label>
+      <div style="display:flex; gap:6px;">
+        <button class="btn-small btn-gold" style="flex:1; padding:8px;" onclick="downloadBackup()">⬇️ Зберегти файл</button>
+        <button class="btn-small" style="flex:1; padding:8px; background:#2a2b30; color:#ddd;" onclick="copyBackup()">📋 Копіювати</button>
+      </div>
+      <div style="font-size:11px; color:#aaa; margin:12px 0 6px;">Відновлення: обери файл копії або встав текст копії нижче.</div>
+      <input type="file" id="backupFile" accept=".json,application/json,text/plain" style="font-size:11px; width:100%; margin-bottom:6px;" onchange="restoreFromFile(this)">
+      <textarea id="backupText" placeholder="Встав сюди текст копії" style="width:100%; min-height:60px; background:#101114; border:1px solid #262830; border-radius:8px; color:#fff; padding:8px; font-size:11px;"></textarea>
+      <button class="btn-small" style="width:100%; padding:8px; margin-top:6px; background:#2a2b30; color:#ddd;" onclick="restoreFromText(document.getElementById('backupText').value)">♻️ Відновити з тексту</button>
+      <div id="backupStatus" style="font-size:11px; color:var(--text-sub); margin-top:8px; line-height:1.4;"></div>
     </div>
 
     <!-- 10. ШІ-ПОМІЧНИК (НАЛАШТУВАННЯ) -->
@@ -640,28 +677,51 @@
       const store = getHistoryStore();
       const transfers = getBankTransfers();
       const fallbackGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
-      let surplus = 0, spent = 0;
+      let net = 0, reserved = 0;
+      // завершені дні (останні 7): недобір додає до банку, перебір віднімає
       for (let i = 1; i <= BANK_WINDOW_DAYS; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const key = dateKey(d);
-        const log = store[key];
+        const log = store[dateKey(d)];
         const eaten = dayEatenKcal(log);
         if (eaten > 0) {
-          const goal = (log && Number(log.goal)) || fallbackGoal;
-          surplus += Math.max(0, Math.round(goal - eaten));
+          const goal = (log && Number(log.goal)) || fallbackGoal; // звичайна ціль дня, без перенесеного з банку
+          net += Math.round(goal - eaten);
         }
       }
-      for (let i = 0; i <= BANK_WINDOW_DAYS; i++) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        spent += Number(transfers[dateKey(d)]) || 0;
-      }
-      return Math.max(0, surplus - spent);
+      // сьогодні й майбутні дні: перенесене з банку «зарезервоване», доки день не завершиться
+      const todayKey = dateKey(new Date());
+      Object.keys(transfers).forEach(key => { if (key >= todayKey) reserved += Number(transfers[key]) || 0; });
+      return Math.max(0, net - reserved);
     }
+    // Повернути в банк невикористану частину перенесених на день калорій
+    function returnUnusedBank() {
+      const key = dateKey(selectedCalendarDate);
+      const tr = getBankTransfers();
+      const T = Number(tr[key]) || 0;
+      if (!T) { alert('На цей день з банку нічого не переносилось.'); return; }
+      const base = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      const used = Math.min(T, Math.max(0, Math.round(currentEatenKcal - base)));
+      const back = T - used;
+      if (back <= 0) { alert('Усі перенесені калорії вже використані.'); return; }
+      if (used > 0) tr[key] = used; else delete tr[key];
+      try { localStorage.setItem('bankTransfers', JSON.stringify(tr)); } catch (e) {}
+      applyGoal();
+      updateDisplayValues();
+      alert(`↩️ Повернуто в банк ${back} ккал (використано ${used}).`);
+    }
+
     function refreshBank() {
       calorieBank = computeBankAvailable();
       const t = '+' + calorieBank + ' ккал';
       const a = document.getElementById('bankDisplay'); if (a) a.innerText = t;
       const b = document.getElementById('menuBankVal'); if (b) b.innerText = t;
+      const info = document.getElementById('bankDayInfo');
+      if (info) {
+        const T = bankTransferFor(selectedCalendarDate);
+        const baseG = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+        const used = Math.min(T, Math.max(0, Math.round(currentEatenKcal - baseG)));
+        info.innerText = T ? `На цей день перенесено ${T} ккал, використано ${used}. Невикористане повернеться в банк, коли день закінчиться, або одразу кнопкою нижче.` : 'На цей день з банку нічого не переносилось.';
+      }
     }
 
     function foodItemHTML(name, kcal, p, f, c, portion, fiber, sugar) {
@@ -678,7 +738,7 @@
             </div>
           </div>
           <div class="food-right">
-            <div><div style="font-size:10px; color:var(--text-sub);">${portion}</div><strong>${kcal}</strong></div>
+            <div><div style="font-size:10px; color:var(--text-sub);" onclick="editFoodPortion(this)" title="Змінити порцію">${portion}</div><strong>${kcal}</strong></div>
             <div class="del-btn" onclick="removeFoodItem(this)" title="Прибрати">×</div>
           </div>
         </div>`;
@@ -730,8 +790,7 @@
         container.innerHTML = items.map(it => foodItemHTML(it.name, it.kcal, it.p, it.f, it.c, it.portion, it.fiber, it.sugar)).join('');
       });
       currentWater = (log && typeof log.water === 'number') ? log.water : 0;
-      const waterEl = document.getElementById('waterVal');
-      if (waterEl) waterEl.innerText = currentWater;
+      updateWaterDisplay();
       if (typeof window.updateTotalsFromDOM === 'function') window.updateTotalsFromDOM();
     }
 
@@ -1163,6 +1222,7 @@
 
       saveProfileData();
       updateDisplayValues();
+      updateWaterDisplay();
       if (typeof window.updateTotalsFromDOM === 'function') window.updateTotalsFromDOM();
       if (typeof calculateBodyComposition === 'function') calculateBodyComposition();
     }
@@ -1466,7 +1526,7 @@
             </div>
           </div>
           <div class="food-right">
-            <div><div style="font-size:10px; color:var(--text-sub);">${portion}</div><strong>${kcal}</strong></div>
+            <div><div style="font-size:10px; color:var(--text-sub);" onclick="editFoodPortion(this)" title="Змінити порцію">${portion}</div><strong>${kcal}</strong></div>
             <div class="del-btn" onclick="this.closest('.food-item').remove()">×</div>
           </div>
         </div>
@@ -1504,9 +1564,114 @@
       if (meal) meal.classList.toggle('open');
     }
 
+    // ===== Резервна копія =====
+    const BACKUP_KEYS = ['foodDiaryHistory', 'userProfileData', 'userBodyMeasurements', 'bankTransfers', 'adaptiveAdjustment'];
+    const BACKUP_KEY_SECRETS = ['geminiApiKeys', 'geminiApiKey'];
+    function backupStatus(msg) { const el = document.getElementById('backupStatus'); if (el) el.textContent = msg; }
+    function buildBackupText() {
+      const data = {};
+      const keys = BACKUP_KEYS.concat(document.getElementById('backupWithKeys') && document.getElementById('backupWithKeys').checked ? BACKUP_KEY_SECRETS : []);
+      keys.forEach(k => { try { const v = localStorage.getItem(k); if (v !== null) data[k] = v; } catch (e) {} });
+      return JSON.stringify({ app: 'schodennik', version: 1, date: new Date().toISOString(), data });
+    }
+    function downloadBackup() {
+      try {
+        const blob = new Blob([buildBackupText()], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `schodennik-backup-${dateKey(new Date())}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        backupStatus('Файл збережено (шукай у «Завантаженнях»). Якщо його там немає — натисни «Копіювати» і встав текст у Нотатки чи в Telegram («Збережене»).');
+      } catch (e) { backupStatus('Не вдалося створити файл. Натисни «Копіювати» і збережи текст у Нотатках.'); }
+    }
+    async function copyBackup() {
+      const text = buildBackupText();
+      try {
+        await navigator.clipboard.writeText(text);
+        backupStatus('Скопійовано. Встав текст у Нотатки чи в «Збережене» в Telegram.');
+      } catch (e) {
+        const ta = document.getElementById('backupText');
+        ta.value = text; ta.focus(); ta.select();
+        try { document.execCommand('copy'); backupStatus('Скопійовано. Встав текст у Нотатки чи в «Збережене» в Telegram.'); }
+        catch (e2) { backupStatus('Текст копії вставлено в поле нижче: виділи його й скопіюй вручну.'); }
+      }
+    }
+    function restoreFromFile(input) {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => restoreFromText(String(r.result || ''));
+      r.onerror = () => backupStatus('Не вдалося прочитати файл.');
+      r.readAsText(f);
+    }
+    function restoreFromText(text) {
+      let obj;
+      try { obj = JSON.parse((text || '').trim()); } catch (e) { backupStatus('Це не схоже на копію додатка (помилка читання).'); return; }
+      if (!obj || obj.app !== 'schodennik' || !obj.data || typeof obj.data !== 'object') { backupStatus('Це не копія цього додатка.'); return; }
+      const allowed = BACKUP_KEYS.concat(BACKUP_KEY_SECRETS);
+      const keys = Object.keys(obj.data).filter(k => allowed.includes(k) && typeof obj.data[k] === 'string');
+      if (!keys.length) { backupStatus('У копії немає даних.'); return; }
+      if (!confirm(`Відновити дані з копії від ${String(obj.date || '').slice(0, 10) || 'невідомої дати'}? Поточні дані (історія, профіль, заміри, банк) будуть замінені.`)) return;
+      keys.forEach(k => { try { localStorage.setItem(k, obj.data[k]); } catch (e) {} });
+      backupStatus('✅ Дані відновлено. Перезавантажую...');
+      setTimeout(() => location.reload(), 700);
+    }
+
+    // Змінити порцію продукту: калорії, БЖВ, клітковина й цукор перераховуються пропорційно
+    function editFoodPortion(portionEl) {
+      const item = portionEl.closest('.food-item');
+      if (!item) return;
+      const subs = item.querySelectorAll('.food-sub span');
+      const kcalEl = item.querySelector('.food-right strong');
+      if (!kcalEl || subs.length < 3) return;
+      const text = portionEl.textContent.trim();
+      const m = /^(\d+(?:[.,]\d+)?)(\s*)(.*)$/.exec(text);
+      if (!item.dataset.baseKcal) {
+        item.dataset.baseKcal = parseFloat(kcalEl.textContent) || 0;
+        item.dataset.baseP = parseFloat(subs[0].textContent) || 0;
+        item.dataset.baseF = parseFloat(subs[1].textContent) || 0;
+        item.dataset.baseC = parseFloat(subs[2].textContent) || 0;
+        item.dataset.baseFiber = Number(item.dataset.fiber) || 0;
+        item.dataset.baseSugar = Number(item.dataset.sugar) || 0;
+        item.dataset.baseAmt = m ? parseFloat(m[1].replace(',', '.')) : 1;
+        item.dataset.basePortion = text;
+      }
+      const baseAmt = Number(item.dataset.baseAmt) || 1;
+      const hasNum = !!m;
+      const unit = hasNum ? m[3] : '';
+      const cur = hasNum ? parseFloat(m[1].replace(',', '.')) : 1;
+      const ans = prompt(hasNum ? `Нова кількість (${unit || 'одиниць'}):` : 'Скільки порцій?', String(cur));
+      if (ans === null) return;
+      const val = parseFloat(String(ans).replace(',', '.'));
+      if (isNaN(val) || val <= 0 || val > 10000) { alert('Введи число більше нуля.'); return; }
+      const f = val / baseAmt;
+      kcalEl.textContent = Math.round(Number(item.dataset.baseKcal) * f);
+      subs[0].textContent = Math.round(Number(item.dataset.baseP) * f) + 'б';
+      subs[1].textContent = Math.round(Number(item.dataset.baseF) * f) + 'ж';
+      subs[2].textContent = Math.round(Number(item.dataset.baseC) * f) + 'в';
+      item.dataset.fiber = Math.round(Number(item.dataset.baseFiber) * f * 10) / 10;
+      item.dataset.sugar = Math.round(Number(item.dataset.baseSugar) * f * 10) / 10;
+      portionEl.textContent = hasNum ? `${val}${m[2]}${unit}` : `${val} × ${item.dataset.basePortion}`;
+      if (typeof window.updateTotalsFromDOM === 'function') window.updateTotalsFromDOM();
+      saveCurrentDayLog();
+    }
+
+    // Норма води: ~30 мл на кг ваги (округлено до 50 мл)
+    function waterGoalMl() {
+      const w = parseFloat((document.getElementById('userWeight') || {}).value);
+      return w > 0 ? Math.round(w * 30 / 50) * 50 : 0;
+    }
+    function updateWaterDisplay() {
+      const el = document.getElementById('waterVal');
+      if (el) el.innerText = currentWater;
+      const g = document.getElementById('waterGoalText');
+      const goal = waterGoalMl();
+      if (g) g.innerText = goal ? ` / ${goal}` : '';
+    }
     function addWater(amount) {
-      currentWater += amount;
-      document.getElementById('waterVal').innerText = currentWater;
+      currentWater = Math.max(0, currentWater + amount);
+      updateWaterDisplay();
       saveCurrentDayLog();
     }
 
@@ -2128,7 +2293,10 @@
   async function lookupBarcode(normalized) {
     setAIStatus(`🏷️ Шукаю штрихкод ${normalized} у базі Open Food Facts...`, 'ok');
     try {
-      const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${normalized}.json`);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const resp = await fetch(`https://world.openfoodfacts.org/api/v2/product/${normalized}.json`, { signal: ctrl.signal });
+      clearTimeout(timer);
       if (!resp.ok) throw new Error(`Помилка ${resp.status}`);
       const data = await resp.json();
 
@@ -2136,12 +2304,20 @@
         const product = data.product;
         const n = product.nutriments || {};
         const name = product.product_name_uk || product.product_name || `Товар ${normalized}`;
-        const kcal = Math.round(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0);
-        const p = Math.round(n['proteins_100g'] || 0);
-        const f = Math.round(n['fat_100g'] || 0);
-        const c = Math.round(n['carbohydrates_100g'] || 0);
-        const fiber = Math.round(n['fiber_100g'] || 0);
-        const sugar = Math.round(n['sugars_100g'] || 0);
+        const num = v => { const x = Number(v); return isNaN(x) ? 0 : x; };
+        const p = Math.round(num(n['proteins_100g']));
+        const f = Math.round(num(n['fat_100g']));
+        const c = Math.round(num(n['carbohydrates_100g']));
+        const fiber = Math.round(num(n['fiber_100g']));
+        const sugar = Math.round(num(n['sugars_100g']));
+        let kcal = Math.round(num(n['energy-kcal_100g'] ?? n['energy-kcal']));
+        if (!kcal && n['energy_100g']) kcal = Math.round(num(n['energy_100g']) / 4.184); // кДж → ккал
+        if (!kcal && (p || f || c)) kcal = Math.round(p * 4 + f * 9 + c * 4);          // з макронутрієнтів
+        if (!kcal) {
+          setAIStatus(`«${name}» знайдено, але в базі немає харчових даних — введи їх вручну.`, 'warn');
+          openManualAdd(normalized);
+          return;
+        }
         addCustomFood(name, kcal, p, f, c, '100г', fiber, sugar);
         setAIStatus(`🏷️ Знайдено в базі: «${name}» (${kcal} ккал/100г). Додано до щоденника.`, 'ok');
         return;
@@ -2206,6 +2382,49 @@
     }
   };
 
+  // Перевірка контрольної цифри EAN-13 / EAN-8 / UPC-A — відсікає хибні зчитування
+  function isValidBarcode(code) {
+    if (!/^\d+$/.test(code)) return false;
+    if (![8, 12, 13].includes(code.length)) return false;
+    const digits = code.split('').map(Number);
+    const check = digits.pop();
+    let sum = 0;
+    digits.reverse().forEach((d, i) => { sum += d * (i % 2 === 0 ? 3 : 1); });
+    return (10 - (sum % 10)) % 10 === check;
+  }
+
+  // Запасний розпізнавач ZXing (завантажується один раз, коли вбудованого BarcodeDetector немає)
+  let zxingLoadPromise = null;
+  function loadZXingReader() {
+    const build = () => {
+      try {
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        const reader = new ZXing.MultiFormatReader();
+        reader.setHints(hints);
+        return reader;
+      } catch (e) { return null; }
+    };
+    if (window.ZXing) return Promise.resolve(build());
+    if (!zxingLoadPromise) {
+      const urls = [
+        'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js',
+        'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'
+      ];
+      const tryLoad = (i) => new Promise((resolve) => {
+        if (i >= urls.length) { resolve(false); return; }
+        const sc = document.createElement('script');
+        sc.src = urls[i];
+        sc.onload = () => resolve(!!window.ZXing);
+        sc.onerror = () => { sc.remove(); tryLoad(i + 1).then(resolve); };
+        document.head.appendChild(sc);
+      });
+      zxingLoadPromise = tryLoad(0);
+    }
+    return zxingLoadPromise.then(ok => { if (!ok) { zxingLoadPromise = null; return null; } return build(); });
+  }
+
   async function openBarcodeCameraScanner() {
     const overlay = document.getElementById('barcodeScanOverlay');
     const video = document.getElementById('barcodeVideo');
@@ -2240,29 +2459,75 @@
         } catch (e) { /* деякі браузери не підтримують getCapabilities */ }
       }
 
-      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] });
+      // Розпізнавач: вбудований BarcodeDetector, а якщо його немає (наприклад, у додатку-обгортці) — запасний ZXing
+      let nativeDetector = null;
+      if ('BarcodeDetector' in window) {
+        try {
+          let fm = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
+          if (typeof BarcodeDetector.getSupportedFormats === 'function') {
+            const sup = await BarcodeDetector.getSupportedFormats();
+            fm = fm.filter(f => sup.includes(f));
+          }
+          if (fm.length) nativeDetector = new BarcodeDetector({ formats: fm });
+        } catch (e) { nativeDetector = null; }
+      }
+      let zxReader = null;
+      if (!nativeDetector) {
+        statusEl.textContent = '⏳ Завантажую модуль розпізнавання (потрібен інтернет)...';
+        zxReader = await loadZXingReader();
+        if (!zxReader) {
+          statusEl.textContent = 'Не вдалося завантажити модуль розпізнавання. Перевір інтернет або натисни «Ввести номер вручну».';
+          return;
+        }
+        statusEl.textContent = '📷 Тримай штрихкод у рамці, на відстані ~10-15 см';
+      }
+      const frameCanvas = document.createElement('canvas');
       let detecting = false;
       let missCount = 0;
+      let lastCode = '', sameCount = 0;
+
+      const readFrame = async () => {
+        if (nativeDetector) {
+          const codes = await nativeDetector.detect(video);
+          return codes.length ? (codes[0].rawValue || '') : '';
+        }
+        // ZXing: беремо центральну смугу кадру (де рамка) у зручному розмірі
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (!vw || !vh) return '';
+        const sw = vw, sh = Math.round(vh * 0.5), sy = Math.round(vh * 0.25);
+        const scale = Math.min(1, 1280 / sw);
+        frameCanvas.width = Math.round(sw * scale);
+        frameCanvas.height = Math.round(sh * scale);
+        frameCanvas.getContext('2d', { willReadFrequently: true }).drawImage(video, 0, sy, sw, sh, 0, 0, frameCanvas.width, frameCanvas.height);
+        try {
+          const lum = new ZXing.HTMLCanvasElementLuminanceSource(frameCanvas);
+          const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+          const res = zxReader.decode(bmp);
+          return res ? res.getText() : '';
+        } catch (e) { return ''; } // NotFoundException — коду в кадрі немає
+      };
 
       barcodeDetectLoop = setInterval(async () => {
         if (detecting) return; // не запускаємо новий кадр, поки попередній ще обробляється
         if (video.readyState < 2) return; // відео ще не готове — пропускаємо цикл
         detecting = true;
         try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            const raw = codes[0].rawValue || '';
-            const normalized = raw.replace(/\D/g, '');
-            window.closeBarcodeScanner();
-            if (normalized) {
+          const raw = await readFrame();
+          const normalized = (raw || '').replace(/\D/g, '');
+          // приймаємо код лише з правильною контрольною цифрою, двічі поспіль — щоб не було хибних зчитувань
+          if (normalized && isValidBarcode(normalized)) {
+            if (normalized === lastCode) sameCount++; else { lastCode = normalized; sameCount = 1; }
+            if (sameCount >= 2) {
+              window.closeBarcodeScanner();
               await lookupBarcode(normalized);
-            } else {
-              setAIStatus(`Розпізнано код «${raw}», але це не схоже на штрихкод продукту.`, 'warn');
             }
           } else {
             missCount++;
             if (missCount === 20) { // ~5 секунд без результату
-              statusEl.textContent = '📷 Не бачу код чітко — спробуй ближче/далі або увімкни ліхтарик у темряві';
+              statusEl.textContent = '📷 Не бачу код чітко — спробуй ближче/далі, тримай рівно або увімкни ліхтарик';
+            }
+            if (missCount === 60) {
+              statusEl.textContent = '📷 Досі не виходить? Натисни «Ввести номер вручну» — набери цифри під штрихкодом.';
             }
           }
         } catch (e) { /* тимчасова помилка детекції — пробуємо далі */ }
@@ -2274,11 +2539,12 @@
   }
 
   window.triggerBarcodeScan = async function () {
-    if ('BarcodeDetector' in window) {
-      await openBarcodeCameraScanner();
-    } else {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setAIStatus('Камера недоступна в цьому вікні (потрібне захищене https-з\'єднання). Введи номер вручну.', 'warn');
       await manualBarcodeEntry();
+      return;
     }
+    await openBarcodeCameraScanner();
   };
 
   window.openManualAdd = function (barcode) {
@@ -2387,6 +2653,110 @@
       : `Автовибір: зараз ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}, записую до «${mealsList[selectedMealIndex].name}». Додай API-ключ у меню ☰, щоб увімкнути ШІ.`,
     'ok'
   );
+
+  // ===== Довідка & помічник по додатку =====
+  function helpCtx() {
+    const maint = (document.getElementById('calcMaint') || {}).innerText || '—';
+    const hasProfile = maint !== '—';
+    const sign = n => (n > 0 ? '+' : '') + n;
+    return {
+      hasProfile, maint,
+      base: baseGoalKcal, adj: adaptiveAdjustment, bonus: bankBonus, bank: calorieBank,
+      goal: userGoalKcal, eaten: Math.round(currentEatenKcal),
+      p: Math.round(userGoalKcal * 0.30 / 4), f: Math.round(userGoalKcal * 0.30 / 9), c: Math.round(userGoalKcal * 0.40 / 4),
+      fiber: Math.round(userGoalKcal / 1000 * 14), sugar: Math.round(userGoalKcal * 0.10 / 4),
+      sign
+    };
+  }
+
+  const HELP_FAQ = [
+    { q: 'Як рахується моя ціль на день?', k: ['ціль', 'tdee', 'тдее', 'калорі', 'норм', 'скільки їсти', 'розрахун', 'формул'],
+      a: x => `Ціль на день складається з кількох частин:\n1) Базовий обмін за формулою Міффліна-Сан Жеора: 10 × вага + 6,25 × зріст − 5 × вік, і ще +5 для чоловіків або −161 для жінок.\n2) Він множиться на 1,375 (легка активність) — це «підтримання маси» (TDEE).\n3) Для схуднення від TDEE віднімається 15% — це базова ціль.\n4) До неї додаються коригування адаптивного коректора (до ±300 ккал) і калорії, перенесені з банку.\n\n${x.hasProfile ? `У тебе зараз: підтримання ${x.maint}, база ${x.base} ккал, коригування коректора ${x.sign(x.adj)}, з банку на цей день ${x.sign(x.bonus)}. Разом: ${x.goal} ккал.` : 'Щоб побачити свої цифри, заповни профіль (вік, зріст, вага).'}\n\nОбмеження: множник активності фіксований (1,375), тренування окремо не враховуються. Ціль не опускається нижче 1200 ккал.` },
+    { q: 'Як рахуються білки, жири, вуглеводи?', k: ['білк', 'жир', 'вуглев', 'бжв', 'макро'],
+      a: x => `Норми БЖВ беруться від цілі дня: білки 30% калорій (÷4 ккал на грам), жири 30% (÷9), вуглеводи 40% (÷4).\nУ тебе зараз: білки ${x.p} г, жири ${x.f} г, вуглеводи ${x.c} г.\nЦе загальний розподіл, а не індивідуальний план дієтолога. Фактичні значення беруться з продуктів, які ти додала.` },
+    { q: 'Як рахуються клітковина і цукор?', k: ['клітков', 'цукор', 'цукр'],
+      a: x => `Клітковина: 14 г на кожні 1000 ккал цілі (у тебе ${x.fiber} г).\nЦукор: до 10% калорій цілі (у тебе ${x.sugar} г) — це орієнтир ВООЗ для вільного цукру.\nВажливо: у продуктах додаток бере «цукри» в цілому з етикеток і баз, тобто разом із природними (у фруктах, молоці). Тому цифра може бути вищою, ніж твій реальний вільний цукор.` },
+    { q: 'Що таке банк калорій і як він працює?', k: ['банк', 'недоїд', 'перенес', 'накопич'],
+      a: x => `Банк збирає недоїдені калорії днів за останні 7 днів. Рахуються тільки дні, де є хоч якісь записи їжі, щоб порожні дні не роздували банк. Старші за 7 днів калорії згорають.\nПеребір (коли з’їла більше цілі) віднімається з банку, але банк не опускається нижче нуля.\nКнопка «Перенести» додає банк до цілі обраного дня. Невикористане після завершення дня повертається в банк, а сьогодні його можна повернути кнопкою «Повернути невикористане в банк».\nЗараз у банку: ${x.bank} ккал.` },
+    { q: 'Що робить Адаптивний коректор?', k: ['адаптив', 'коректор', 'корекц'],
+      a: x => `Він порівнює, наскільки ти схудла за тиждень, з тим, що очікувалось при твоїй цілі (7700 ккал ≈ 1 кг). Якщо схуднення повільніше — ціль трохи зменшується, якщо швидше — трохи збільшується. Зміна обмежена: загалом не більше ±300 ккал від розрахунку, ціль не нижче 1200.\n«Вага зараз» береться з профілю, «7 днів тому» — з історії ваги. Якщо вводиш вручну, додаток просить підтвердження й зберігає значення.\nЗараз коригування: ${x.sign(x.adj)} ккал. Його можна скинути кнопкою в коректорі.` },
+    { q: 'Як додати їжу? Що вміє ШІ-чат?', k: ['додат', 'їж', 'чат', 'сніданок', 'обід', 'вечер', 'перекус', 'видал', 'прибр', 'порці', 'грам'],
+      a: () => `Додати їжу можна 5 способами:\n• Написати в рядку внизу («2 яйця і тост»). ШІ оцінює калорії й БЖВ.\n• Вказати прийом: «на сніданок було яйце» — додасться саме в сніданок, навіть увечері. Так само можна прибрати: «прибери яйце зі сніданку».\n• Змінити порцію: торкнись напису порції біля продукту (з позначкою ✎) і введи нову кількість — калорії, БЖВ, клітковина й цукор перерахуються. Або напиши ШІ-чату.\n• Сканувати штрихкод (🏷️) — дані з Open Food Facts.\n• Сфотографувати страву (📷) — ШІ оцінює за фото.\nЯкщо прийом не вказано, додаток обирає його за часом доби. Продукт можна видалити хрестиком. Продукт зі штрихкоду додається як 100 г.` },
+    { q: 'Як працює сканер штрихкоду?', k: ['штрих', 'скан', 'камер'],
+      a: () => `Камера зчитує штрихкод, перевіряє контрольну цифру і шукає товар у базі Open Food Facts. Якщо його там немає — відкриється картка для ручного введення (можна попросити ШІ оцінити за назвою).\nПотрібні дозвіл на камеру та інтернет. Якщо вбудованого розпізнавача в телефоні немає, додаток один раз завантажує запасний.\nБаза не містить усіх товарів, а дані в ній вводять люди, тож їх варто перевіряти.` },
+    { q: 'Де зберігаються мої дані?', k: ['дан', 'зберіга', 'історі', 'пам', 'втрат', 'резерв', 'копі', 'телефон'],
+      a: () => `Усе (профіль, історія днів, заміри, банк, ключі) зберігається тільки в пам'яті цього додатка на телефоні. Сервера й хмарної синхронізації немає.\nІсторія днів не обмежена за часом. Але якщо очистити дані додатка або змінити телефон, усе зникне.\nРезервну копію можна зробити в меню «💾 Резервна копія даних» (файл або копіювання тексту) і відновити з неї. Роби її час від часу.` },
+    { q: 'Що таке ШІ-ключі і чому бувають помилки?', k: ['ключ', 'ліміт', 'gemini', 'помилк', 'ші не', 'api'],
+      a: () => `ШІ працює через безкоштовний Google Gemini. Для цього потрібен ключ (можна додати до 30 ключів — додаток сам перемикається між ними, коли ліміт одного вичерпано).\nБезкоштовний ліміт запитів невеликий і за день закінчується, тоді ШІ відповідає помилкою або неповно. Відповіді ШІ запам'ятовуються (кеш), щоб економити ліміт.\nВідповіді ШІ — це оцінка, а не точний вимір: калорії страв і порцій можуть відрізнятись від реальних.` },
+    { q: 'Що означають ІМТ, жир, талія/стегна?', k: ['імт', 'жир тіла', 'талі', 'стегн', 'заміри', 'whr', 'whtr', 'грудей', 'шия'],
+      a: () => `ІМТ = вага ÷ зріст² (у метрах). Орієнтир: <18,5 — недостатня, 18,5–25 — норма, 25–30 — надлишкова, 30+ — ожиріння. ІМТ не відрізняє м'язи від жиру.\nЖир тіла рахується за формулою ВМС США (за талією, шиєю, зростом, для жінок ще стегнами) — це оцінка з похибкою.\nWHR (талія/стегна) і WHtR (талія/зріст) показують розподіл жиру: тривожні значення — WHR від 0,85 (жінки) або 0,90 (чоловіки), WHtR від 0,5.\nЦе довідкові орієнтири, не діагноз.` },
+    { q: 'Яка норма води?', k: ['вод', 'гідрат', 'пити'],
+      a: () => { const g = waterGoalMl(); return `Норма води — приблизно 30 мл на кожен кілограм ваги (округлено до 50 мл)${g ? `: у тебе ${g} мл на день` : '. Заповни вагу в профілі, щоб побачити свою норму'}. Кнопки +250, +500 додають воду, −250 виправляє помилку. Це загальний орієнтир: при хворобах серця чи нирок, вагітності або спеці норму варто уточнити в лікаря.`; } },
+    { q: 'Що додаток НЕ вміє?', k: ['не вміє', 'не може', 'обмеж', 'мінус', 'недолік', 'можливост'],
+      a: () => `Чесно, чого поки немає:
+• Синхронізації між телефонами та хмари (є лише ручна резервна копія).
+• Сповіщень, коли додаток закритий.
+• Точного обліку тренувань і кроків (активність фіксована, 1,375).
+• Різниці між доданим і природним цукром.
+• Лікарських порад: це не медичний прилад, а трекер. При хворобах, вагітності чи розладах харчування ціль слід узгоджувати з лікарем.
+Також ШІ та бази продуктів можуть помилятись.` }
+  ];
+
+  function renderHelpChips() {
+    const box = document.getElementById('helpChips');
+    if (!box) return;
+    box.innerHTML = HELP_FAQ.map((f, i) => `<button class="btn-small" style="margin:3px 4px 3px 0; background:#2a2b30; color:#ddd;" onclick="showHelpFaq(${i})">${f.q}</button>`).join('');
+  }
+  function showHelpAnswer(title, text, extra) {
+    const out = document.getElementById('helpAnswer');
+    if (!out) return;
+    out.style.display = 'block';
+    out.innerHTML = '';
+    const t = document.createElement('div'); t.style.cssText = 'font-weight:700; color:var(--accent-gold); margin-bottom:6px;'; t.textContent = title;
+    const b = document.createElement('div'); b.style.cssText = 'white-space:pre-wrap; line-height:1.5;'; b.textContent = text;
+    out.appendChild(t); out.appendChild(b);
+    if (extra) { const e = document.createElement('div'); e.style.cssText = 'font-size:10px; color:#8e8e93; margin-top:6px;'; e.textContent = extra; out.appendChild(e); }
+  }
+  window.showHelpFaq = function (i) { showHelpAnswer(HELP_FAQ[i].q, HELP_FAQ[i].a(helpCtx())); };
+
+  function helpKeywordMatch(question) {
+    const q = question.toLowerCase();
+    let best = -1, score = 0;
+    HELP_FAQ.forEach((f, i) => {
+      let s = 0; f.k.forEach(w => { if (q.includes(w)) s += w.length; });
+      if (s > score) { score = s; best = i; }
+    });
+    return score >= 3 ? best : -1;
+  }
+
+  window.askAppHelper = async function () {
+    const input = document.getElementById('helpQuestion');
+    const question = (input.value || '').trim();
+    if (!question) return;
+    const btn = document.getElementById('helpAskBtn');
+    const fallback = () => {
+      const i = helpKeywordMatch(question);
+      if (i >= 0) showHelpAnswer(HELP_FAQ[i].q, HELP_FAQ[i].a(helpCtx()), 'Відповідь із довідки (ШІ зараз недоступний).');
+      else showHelpAnswer('Не знайшла відповіді', 'Спробуй одне з питань вище або сформулюй інакше. Для вільних запитань потрібен ШІ-ключ Gemini (меню «ШІ-помічник»).');
+    };
+    if (!getApiKeys().length) { fallback(); return; }
+    btn.disabled = true; btn.textContent = '⏳ Думаю...';
+    const x = helpCtx();
+    const knowledge = HELP_FAQ.map(f => `# ${f.q}\n${f.a(x)}`).join('\n\n');
+    const systemPrompt = `Ти — довідковий помічник застосунку «Розумний Щоденник» (трекер калорій, українською). Відповідай ТІЛЬКИ про цей застосунок: що він рахує, як, що вміє і чого не вміє. Спирайся лише на довідку нижче й живі цифри користувача. Якщо в довідці немає відповіді — чесно скажи, що не знаєш або що такої функції немає; нічого не вигадуй і не обіцяй функцій. Не давай медичних порад. Відповідай коротко, простою мовою, 2–6 речень.
+Відповідай ЛИШЕ одним JSON: {"answer":"текст"}
+
+ДОВІДКА:
+${knowledge}`;
+    try {
+      const res = await callGeminiWithRetry(systemPrompt, question, null, { maxTokens: 600, maxAttempts: 2 });
+      const ans = (res && res.answer) ? String(res.answer) : '';
+      if (!ans) throw new Error('empty');
+      showHelpAnswer(question, ans, 'Відповідь ШІ на основі довідки. Для точних цифр дивись розділи вище.');
+    } catch (e) { fallback(); }
+    btn.disabled = false; btn.textContent = 'Запитати';
+  };
+  renderHelpChips();
 
   if (typeof window.rotateAIPTip === 'function') window.rotateAIPTip();
 
