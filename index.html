@@ -364,13 +364,19 @@
           <input type="number" id="targetWeight" value="" placeholder="кг">
         </div>
         <div class="input-group" style="grid-column: 1 / -1;">
-          <label>Рівень активності</label>
+          <details id="activityBox">
+            <summary style="cursor:pointer;font-size:0.85em;opacity:0.75;">⚙️ Додатково: врахувати активність (необов'язково)</summary>
+            <label style="display:flex;gap:8px;align-items:center;margin:10px 0 6px;">
+              <input type="checkbox" id="useActivity" style="width:auto;"> Враховувати активність у розрахунку
+            </label>
+            <div style="font-size:0.78em;opacity:0.7;margin-bottom:6px;">Якщо вимкнено — ціль рахується без надбавки за активність (як для сидячої роботи).</div>
           <select id="userActivity">
             <option value="1.2">Сидяча: офісна робота, без тренувань</option>
             <option value="1.375">Легка: 1–3 тренування на тиждень</option>
             <option value="1.55">Помірна: 3–5 тренувань на тиждень</option>
             <option value="1.725">Висока: щоденні тренування або фізична робота</option>
           </select>
+          </details>
         </div>
         <div class="input-group" style="grid-column: 1 / -1;">
           <label>Темп схуднення (дефіцит калорій)</label>
@@ -1239,6 +1245,7 @@
         weight: document.getElementById('userWeight').value,
         targetWeight: document.getElementById('targetWeight').value,
         activity: document.getElementById('userActivity').value,
+        useActivity: document.getElementById('useActivity').checked,
         deficit: document.getElementById('userDeficit').value,
         customGoal: document.getElementById('userCustomGoal').value
       };
@@ -1256,6 +1263,8 @@
         if (data.weight) document.getElementById('userWeight').value = data.weight;
         if (data.targetWeight) document.getElementById('targetWeight').value = data.targetWeight;
         if (data.activity) document.getElementById('userActivity').value = data.activity;
+        document.getElementById('useActivity').checked = data.useActivity === true;
+        if (data.useActivity === true) document.getElementById('activityBox').open = true;
         if (data.deficit) document.getElementById('userDeficit').value = data.deficit;
         if (data.customGoal) document.getElementById('userCustomGoal').value = data.customGoal;
         document.getElementById('customGoalRow').style.display = document.getElementById('userDeficit').value === 'custom' ? 'block' : 'none';
@@ -1289,7 +1298,7 @@
       const bmr = gender === 'male'
         ? (10 * weight) + (6.25 * height) - (5 * age) + 5
         : (10 * weight) + (6.25 * height) - (5 * age) - 161;
-      const activityFactor = parseFloat(document.getElementById('userActivity').value) || 1.2;
+      const activityFactor = document.getElementById('useActivity').checked ? (parseFloat(document.getElementById('userActivity').value) || 1.2) : 1.2;
       const tdee = Math.round(bmr * activityFactor);
       const deficitVal = document.getElementById('userDeficit').value;
       let loss, lossLabel;
@@ -1592,11 +1601,12 @@
       document.getElementById('remainKcalDisplay').innerText = remain;
       document.getElementById('progressFill').style.width = `${pct}%`;
 
-      const over = Math.round(currentEatenKcal - userGoalKcal);
+      const over = currentEatenKcal > userGoalKcal ? Math.max(1, Math.ceil(currentEatenKcal - userGoalKcal)) : 0;
       let batteryText, batteryColor = 'var(--battery-color)';
       if (currentEatenKcal <= 0) batteryText = 'Ще нічого не записано (0%)';
       else if (over > 0) { batteryText = `Ліміт перевищено на ${over} ккал`; batteryColor = '#ff8a65'; }
-      else if (pct > 90) batteryText = `Майже ліміт (${pct}%)`;
+      else if (currentEatenKcal >= userGoalKcal) batteryText = 'Ліміт досягнуто (100%)';
+      else if (pct > 90) batteryText = `Майже ліміт (${Math.min(pct,99)}%)`;
       else batteryText = `Ресурс оптимальний (${pct}%)`;
       const batteryEl = document.getElementById('batteryStatusText');
       batteryEl.innerText = batteryText;
@@ -1848,7 +1858,7 @@
     loadBodyMeasurementsData();
     recalculateNorms();
     // Будь-яка зміна параметрів профілю одразу перераховує TDEE і ціль на головному екрані
-    ['userAge', 'userGender', 'userHeight', 'userWeight', 'targetWeight', 'userActivity', 'userDeficit', 'userCustomGoal'].forEach(id => {
+    ['userAge', 'userGender', 'userHeight', 'userWeight', 'targetWeight', 'userActivity', 'useActivity', 'userDeficit', 'userCustomGoal'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('input', recalculateNorms);
@@ -2881,14 +2891,14 @@
       water: currentWater, waterGoal: waterGoalMl(),
       weight: (document.getElementById('userWeight') || {}).value || '', target: (document.getElementById('targetWeight') || {}).value || '',
       day: selectedCalendarDate.toLocaleDateString('uk-UA'),
-      activity: (document.getElementById('userActivity').selectedOptions[0] || {}).text || '',
+      activity: document.getElementById('useActivity').checked ? ((document.getElementById('userActivity').selectedOptions[0] || {}).text || '') : 'не враховується (розрахунок без надбавки)',
       sign
     };
   }
 
   const HELP_FAQ = [
     { q: 'Як рахується моя ціль на день?', k: ['ціль', 'tdee', 'тдее', 'калорі', 'норм', 'скільки їсти', 'розрахун', 'формул'],
-      a: x => `Ціль на день складається з кількох частин:\n1) Базовий обмін за формулою Міффліна-Сан Жеора: 10 × вага + 6,25 × зріст − 5 × вік, і ще +5 для чоловіків або −161 для жінок.\n2) Він множиться на коефіцієнт активності з профілю (сидяча робота 1,2; легка 1,375; помірна 1,55; висока 1,725) — це «підтримання маси» (TDEE).\n3) Від TDEE віднімається обраний тобою дефіцит (−10%, −15% або −20%) — це базова ціль. Або береться твоя власна ціль, якщо ти ввела її в профілі.\n4) До неї додаються коригування адаптивного коректора (до ±300 ккал) і калорії, перенесені з банку.\n\n${x.hasProfile ? `У тебе зараз: підтримання ${x.maint}, база ${x.base} ккал, коригування коректора ${x.sign(x.adj)}, з банку на цей день ${x.sign(x.bonus)}. Разом: ${x.goal} ккал.` : 'Щоб побачити свої цифри, заповни профіль (вік, зріст, вага).'}\n\nОбмеження: тренування окремо не рахуються, є лише вибір рівня активності. Ціль не опускається нижче 1200 ккал.` },
+      a: x => `Ціль на день складається з кількох частин:\n1) Базовий обмін за формулою Міффліна-Сан Жеора: 10 × вага + 6,25 × зріст − 5 × вік, і ще +5 для чоловіків або −161 для жінок.\n2) Він множиться на коефіцієнт активності з профілю (за замовчуванням 1,2 — як для офісної роботи; рівень активності прихований у профілі в «Додатково» і береться, лише якщо ти його ввімкнула) — це «підтримання маси» (TDEE).\n3) Від TDEE віднімається обраний тобою дефіцит (−10%, −15% або −20%) — це базова ціль. Або береться твоя власна ціль, якщо ти ввела її в профілі.\n4) До неї додаються коригування адаптивного коректора (до ±300 ккал) і калорії, перенесені з банку.\n\n${x.hasProfile ? `У тебе зараз: підтримання ${x.maint}, база ${x.base} ккал, коригування коректора ${x.sign(x.adj)}, з банку на цей день ${x.sign(x.bonus)}. Разом: ${x.goal} ккал.` : 'Щоб побачити свої цифри, заповни профіль (вік, зріст, вага).'}\n\nОбмеження: тренування окремо не рахуються, є лише вибір рівня активності. Ціль не опускається нижче 1200 ккал.` },
     { q: 'Як рахуються білки, жири, вуглеводи?', k: ['білк', 'жир', 'вуглев', 'бжв', 'макро'],
       a: x => `Норми БЖВ беруться від цілі дня: білки 30% калорій (÷4 ккал на грам), жири 30% (÷9), вуглеводи 40% (÷4).\nУ тебе зараз: білки ${x.p} г, жири ${x.f} г, вуглеводи ${x.c} г.\nЦе загальний розподіл, а не індивідуальний план дієтолога. Фактичні значення беруться з продуктів, які ти додала.` },
     { q: 'Як рахуються клітковина і цукор?', k: ['клітков', 'цукор', 'цукр'],
@@ -2910,12 +2920,12 @@
     { q: 'Яка норма води?', k: ['вод', 'гідрат', 'пити'],
       a: () => { const g = waterGoalMl(); return `Норма води — приблизно 30 мл на кожен кілограм ваги (округлено до 50 мл)${g ? `: у тебе ${g} мл на день` : '. Заповни вагу в профілі, щоб побачити свою норму'}. Кнопки +250, +500 додають воду, −250 виправляє помилку. Це загальний орієнтир: при хворобах серця чи нирок, вагітності або спеці норму варто уточнити в лікаря.`; } },
     { q: 'Що є в додатку? Огляд розділів', k: ['огляд', 'що є', 'розділ', 'меню', 'функці', 'вміє', 'можливост'],
-      a: () => `Головний екран: денна ціль і залишок калорій, БЖВ, клітковина, цукор, банк, вода, прийоми їжі, календар днів, рядок швидкого додавання їжі (текст, 🏷️ штрихкод, 📷 фото).\nМеню ☰: Профіль & Цілі (з рівнем активності); Адаптивний коректор; Прогрес, Заміри & ШІ-аналітика (графіки, жир тіла, тижневий ШІ-звіт); Тижневий підсумок (середні калорії, дні в межах цілі, вага); Гнучкий банк калорій; Наукові розрахунки TDEE; Психологія й факти від ШІ; База продуктів; Оцінка порцій «на око»; Книга рецептів і ШІ-генератор страв з холодильника; Довідка; Резервна копія; ШІ-ключі.` },
+      a: () => `Головний екран: денна ціль і залишок калорій, БЖВ, клітковина, цукор, банк, вода, прийоми їжі, календар днів, рядок швидкого додавання їжі (текст, 🏷️ штрихкод, 📷 фото).\nМеню ☰: Профіль & Цілі; Адаптивний коректор; Прогрес, Заміри & ШІ-аналітика (графіки, жир тіла, тижневий ШІ-звіт); Тижневий підсумок (середні калорії, дні в межах цілі, вага); Гнучкий банк калорій; Наукові розрахунки TDEE; Психологія й факти від ШІ; База продуктів; Оцінка порцій «на око»; Книга рецептів і ШІ-генератор страв з холодильника; Довідка; Резервна копія; ШІ-ключі.` },
     { q: 'Що додаток НЕ вміє?', k: ['не вміє', 'не може', 'обмеж', 'мінус', 'недолік', 'можливост'],
       a: () => `Чесно, чого поки немає:
 • Синхронізації між телефонами та хмари (є лише ручна резервна копія).
 • Сповіщень, коли додаток закритий.
-• Точного обліку тренувань і кроків (є лише вибір рівня активності в профілі).
+• Точного обліку тренувань і кроків (активність за бажанням можна ввімкнути в профілі в «Додатково»).
 • Різниці між доданим і природним цукром.
 • Лікарських порад: це не медичний прилад, а трекер. При хворобах, вагітності чи розладах харчування ціль слід узгоджувати з лікарем.
 Також ШІ та бази продуктів можуть помилятись.` }
