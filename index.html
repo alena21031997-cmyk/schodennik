@@ -441,6 +441,11 @@
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">ШІ проаналізує твої реальні дані за останні 7 днів і знайде патерни та поради.</div>
       <div id="weeklyReportBox" style="font-size:12px; color:#fff; background:#18191d; padding:8px; border-radius:8px; display:none; line-height:1.45;"></div>
       <button class="btn-small btn-gold" style="width:100%; padding:8px; margin-top:8px;" onclick="generateWeeklyReport()">✨ Згенерувати звіт</button>
+
+      <details id="savingsDetails" style="margin-top:14px;" ontoggle="if(this.open) renderSavings();">
+        <summary style="cursor:pointer; font-size:12px; font-weight:700; color:var(--accent-gold);">⚖️ Енергетичний баланс (натисни, щоб перевірити)</summary>
+        <div id="savingsBox" style="font-size:12px; line-height:1.55; margin-top:8px;"></div>
+      </details>
     </div>
 
     <!-- 3. ГНУЧКИЙ БАНК КАЛОРІЙ -->
@@ -1387,6 +1392,39 @@
         <div style="font-size:10px; color:var(--text-sub); margin-top:6px;">Формат: з’їдено / ціль того дня (різниця).</div>`;
     }
 
+    // ===== Заощадження калорій і еквівалент жиру (7700 ккал ≈ 1 кг жиру) =====
+    function renderSavings() {
+      const box = document.getElementById('savingsBox');
+      if (!box) return;
+      const store = getHistoryStore();
+      const fallbackGoal = Math.max(1200, baseGoalKcal + adaptiveAdjustment);
+      const maint = parseFloat((document.getElementById('calcMaint').innerText || '').replace(/\D/g, '')) || 0;
+      const todayN = dateKeyNum(dateKey(new Date()));
+      const rows = [];
+      Object.keys(store).forEach(k => {
+        const n = dateKeyNum(k);
+        if (!(n < todayN)) return;
+        const log = store[k], eaten = dayEatenKcal(log);
+        if (eaten <= 0) return;
+        const [y, m, d] = k.split('-').map(Number);
+        const age = Math.round((new Date().setHours(0,0,0,0) - new Date(y, m, d).getTime()) / 86400000);
+        rows.push({ age, eaten, goal: Number(log.goal) || fallbackGoal });
+      });
+      const fat = kcal => { const g = Math.round(Math.abs(kcal) / 7.7); return g >= 1000 ? (g / 1000).toFixed(2).replace('.', ',') + ' кг' : g + ' г'; };
+      const line = (title, maxAge) => {
+        const rs = rows.filter(x => x.age <= maxAge);
+        if (!rs.length) return `<div style="margin-bottom:8px;"><b>${title}</b><br><span style="color:var(--text-sub);">немає записів</span></div>`;
+        const saved = rs.reduce((t, x) => t + (x.goal - x.eaten), 0);
+        const def = maint ? rs.reduce((t, x) => t + (maint - x.eaten), 0) : null;
+        let h = `<div style="background:#101114; border-radius:8px; padding:10px; margin-bottom:8px;"><b>${title}</b> (днів із записами: ${rs.length})<br>`;
+        h += `Відносно цілі: <b>${saved >= 0 ? 'заощаджено' : 'перебір'} ${Math.abs(Math.round(saved))} ккал</b> ≈ ${fat(saved)} жиру${saved < 0 ? ' (набрано)' : ''}.<br>`;
+        if (def !== null) h += `Відносно підтримання ваги (${maint}): <b>${def >= 0 ? 'дефіцит' : 'профіцит'} ${Math.abs(Math.round(def))} ккал</b> ≈ <b>${fat(def)}</b> жиру ${def >= 0 ? 'втрачено' : 'набрано'}.`;
+        return h + '</div>';
+      };
+      box.innerHTML = line('Останні 7 днів', 7) + line('Останні 30 днів', 30) + line('Увесь час', 100000) +
+        '<div style="font-size:10px; color:var(--text-sub);">Сьогодні не враховано. Правило: 7700 ккал ≈ 1 кг жиру (1 ккал ≈ 0,13 г). «Відносно цілі» — те, що ти не з’їла з денної цілі. Справжня втрата жиру залежить від дефіциту відносно підтримання ваги, тому другий рядок ближчий до реальності. Це оцінка, а не точне вимірювання: вага також коливається через воду.</div>';
+    }
+
     // ===== Адаптивний коректор за тижневими середніми =====
     const ADAPTIVE_MIN_WEIGHINS = 5;
     let adaptiveManual = { past: false, now: false };
@@ -1600,6 +1638,7 @@
 
       document.getElementById('remainKcalDisplay').innerText = remain;
       document.getElementById('progressFill').style.width = `${pct}%`;
+      const tb = document.getElementById('topKcalBadge'); if (tb) tb.innerText = `Ціль ${userGoalKcal}`;
 
       const over = currentEatenKcal > userGoalKcal ? Math.max(1, Math.ceil(currentEatenKcal - userGoalKcal)) : 0;
       let batteryText, batteryColor = 'var(--battery-color)';
@@ -1705,7 +1744,6 @@
 
       targetContainer.classList.add('open');
       document.getElementById('totalKcalDisplay').innerText = currentEatenKcal;
-      document.getElementById('topKcalBadge').innerText = `${currentEatenKcal} ккал`;
       updateDisplayValues();
     }
 
@@ -1952,7 +1990,7 @@
     const total = document.getElementById('totalKcalDisplay');
     const badge = document.getElementById('topKcalBadge');
     if (total) total.textContent = kcal;
-    if (badge) badge.textContent = `${kcal} ккал`;
+    if (badge) badge.textContent = `Ціль ${userGoalKcal}`;
 
     const pValEl = document.getElementById('pVal');
     const fValEl = document.getElementById('fVal');
